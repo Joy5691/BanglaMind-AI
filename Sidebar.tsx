@@ -310,8 +310,15 @@ export default function App() {
   const handleLogin = async () => {
     try {
       await loginWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Login failed: Unauthorized domain.\n\nTo fix this in your deployed app:\n1. Go to Firebase Console\n2. Select Authentication -> Settings -> Authorized Domains\n3. Add this app's URL to the list.");
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("Login failed: Popup blocked by your browser. Please allow popups for this site and try again.");
+      } else {
+        alert("Login failed: " + (error.message || "Unknown error occurred."));
+      }
     }
   };
 
@@ -483,7 +490,7 @@ export default function App() {
               className="w-20 h-20 rounded-2xl bg-[#0a110d] border border-emerald-900/30 flex items-center justify-center glow-emerald-glow mb-6 overflow-hidden shadow-2xl cursor-pointer"
             >
               <TransparentMapLogo 
-                src="/bd_log_2.png" 
+                src="/2.png" 
                 removeColor="black" 
                 alt="BanglaMind AI Dark Logo" 
                 className="w-14 h-14" 
@@ -510,7 +517,7 @@ export default function App() {
               <span>Continue with Google</span>
             </button>
 
-            {/* Showcase Card with White Background using bd_log_1.png */}
+            {/* Showcase Card with White Background using 1.png */}
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -519,7 +526,7 @@ export default function App() {
             >
               <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 overflow-hidden shadow-inner">
                 <TransparentMapLogo 
-                  src="/bd_log_1.png" 
+                  src="/1.png" 
                   removeColor="white" 
                   alt="BanglaMind AI Light Logo" 
                   className="w-10 h-10" 
@@ -558,7 +565,7 @@ export default function App() {
                   className="w-9 h-9 rounded-xl bg-[#0a110d] border border-emerald-900/30 flex items-center justify-center glow-emerald-glow shadow-lg shadow-emerald-500/20 overflow-hidden cursor-pointer"
                 >
                   <TransparentMapLogo 
-                    src="/bd_log_2.png" 
+                    src="/2.png" 
                     removeColor="black" 
                     alt="BanglaMind AI Logo" 
                     className="w-7 h-7" 

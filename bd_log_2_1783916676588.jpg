@@ -1,685 +1,535 @@
-import React, { useState, useEffect } from "react";
-import { SystemLog, PerformanceStats, Document } from "../types";
-import ResearchDashboard from "./ResearchDashboard";
-import { fetchChatSessions, ChatSession } from "../lib/chatSessions";
+import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
+import TransparentMapLogo from "./TransparentMapLogo";
 import { 
-  Database, 
-  Terminal, 
-  Cpu, 
+  AssistantMode, 
+  Document 
+} from "../types";
+import { ChatSession } from "../lib/chatSessions";
+import { 
+  Bot, 
+  GraduationCap, 
+  Code, 
+  Search, 
+  Sprout, 
+  Building, 
+  Heart, 
+  Briefcase, 
+  Upload, 
   Trash2, 
-  RefreshCw, 
   Check, 
   FileText, 
   Plus, 
+  Clock, 
   AlertCircle,
-  Users,
-  LineChart,
-  X,
   MessageSquare,
-  Clock
+  X
 } from "lucide-react";
 
-interface UserStat {
-  userId: string;
-  lastActive: string;
-  queriesCount: number;
-  avgLatency: number;
-  tokensUsed: number;
-}
-
-interface AdminConsoleProps {
-  logs: SystemLog[];
-  onAddLog: (type: "info" | "warn" | "error", msg: string) => void;
-  documentCount: number;
-  stats: PerformanceStats;
+interface SidebarProps {
+  currentMode: AssistantMode;
+  setMode: (mode: AssistantMode) => void;
   documents: Document[];
+  selectedDocIds: string[];
+  toggleDocSelection: (id: string) => void;
+  onUploadSuccess: (newDoc: Document) => void;
+  onDeleteSuccess: (id: string) => void;
+  addLogMessage: (type: "info" | "warn" | "error", msg: string) => void;
+  userId?: string;
+  webSearchEnabled?: boolean;
+  setWebSearchEnabled?: (enabled: boolean) => void;
+  chatSessions?: ChatSession[];
+  currentSessionId?: string | null;
+  onLoadSession?: (sessionId: string) => void;
+  onNewChat?: () => void;
+  isAdmin?: boolean;
+  onDeleteSession?: (id: string) => Promise<void>;
+  width?: number;
+  collapsed?: boolean;
+  onClose?: () => void;
 }
 
-export default function AdminConsole({ logs, onAddLog, documentCount, stats, documents }: AdminConsoleProps) {
-  const [activeLogs, setActiveLogs] = useState<SystemLog[]>(logs);
-  const [activeUsers, setActiveUsers] = useState<UserStat[]>([]);
-  const [filterLevel, setFilterLevel] = useState<"ALL" | "INFO" | "WARN" | "ERROR">("ALL");
-  const [rawTitle, setRawTitle] = useState("");
-  const [rawText, setRawText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [adminTab, setAdminTab] = useState<"DB" | "TELEMETRY" | "USERS">("DB");
-
-  // User Session Preview States
-  const [selectedUserUid, setSelectedUserUid] = useState<string | null>(null);
-  const [userSessions, setUserSessions] = useState<ChatSession[]>([]);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
-  const [selectedPreviewSession, setSelectedPreviewSession] = useState<ChatSession | null>(null);
-
-  const handleUserSelect = async (userId: string) => {
-    setSelectedUserUid(userId);
-    setIsLoadingSessions(true);
-    setSelectedPreviewSession(null);
-    try {
-      const sessions = await fetchChatSessions(userId);
-      setUserSessions(sessions);
-    } catch (e) {
-      console.error("Failed to load user sessions for preview", e);
-    } finally {
-      setIsLoadingSessions(false);
-    }
-  };
+export default function Sidebar({
+  currentMode,
+  setMode,
+  documents,
+  selectedDocIds,
+  toggleDocSelection,
+  onUploadSuccess,
+  onDeleteSuccess,
+  addLogMessage,
+  userId,
+  webSearchEnabled,
+  setWebSearchEnabled,
+  chatSessions = [],
+  currentSessionId,
+  onLoadSession,
+  onNewChat,
+  isAdmin = false,
+  onDeleteSession,
+  width = 320,
+  collapsed = false,
+  onClose
+}: SidebarProps) {
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    setActiveLogs(logs);
-  }, [logs]);
-
-  // Fetch active users stats
-  const fetchActiveUsers = async () => {
-    try {
-      const response = await fetch("/api/admin/users");
-      if (response.ok) {
-        const data = await response.json();
-        setActiveUsers(data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch active users", e);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs();
-    fetchActiveUsers();
-    const interval = setInterval(() => {
-      fetchLogs();
-      fetchActiveUsers();
-    }, 5000);
-    return () => clearInterval(interval);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Fetch log updates from backend
-  const fetchLogs = async () => {
-    try {
-      const response = await fetch("/api/logs");
-      if (response.ok) {
-        const data = await response.json();
-        setActiveLogs(data);
-      }
-    } catch (e) {
-      onAddLog("error", "Failed to retrieve live system logs from container backend.");
-    }
-  };
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Clear system logs
-  const clearLogs = async () => {
-    try {
-      const response = await fetch("/api/logs/clear", { method: "POST" });
-      if (response.ok) {
-        setActiveLogs([]);
-        onAddLog("info", "System activity console records flushed by admin command.");
-      }
-    } catch (e) {
-      onAddLog("error", "Flushing command failed.");
-    }
-  };
+  const modes = [
+    { mode: AssistantMode.GENERAL, label: "BanglaMind AI", desc: "Multilingual generic assistant", icon: Bot, color: "text-emerald-400" },
+    { mode: AssistantMode.STUDENT, label: "Student Assistant", desc: "Homework, courses & roadmaps", icon: GraduationCap, color: "text-blue-400" },
+    { mode: AssistantMode.PROGRAMMING, label: "Programming Assistant", desc: "Code generation & debugging", icon: Code, color: "text-indigo-400" },
+    { mode: AssistantMode.RESEARCH, label: "Research Assistant", desc: "Literature review & hypothesis", icon: Search, color: "text-purple-400" },
+    { mode: AssistantMode.AGRICULTURE, label: "Agriculture Assistant", desc: "Crop diagnosis & fertilizer help", icon: Sprout, color: "text-green-400" },
+    { mode: AssistantMode.GOVERNMENT, label: "Government Portal", desc: "NID, passports & licenses", icon: Building, color: "text-amber-400" },
+    { mode: AssistantMode.HEALTH, label: "Health Awareness", desc: "Terminology, nutrition & terminology", icon: Heart, color: "text-rose-400" },
+    { mode: AssistantMode.BUSINESS, label: "Local Business Hub", desc: "Taxes, licensing & directories", icon: Briefcase, color: "text-cyan-400" }
+  ];
 
-  // Submit direct dataset injection
-  const handleDatasetSubmit = async (e: React.FormEvent) => {
+  // Drag and Drop handlers
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!rawTitle.trim() || !rawText.trim()) return;
+    setIsDragging(true);
+  };
 
-    setIsSubmitting(true);
-    setSubmitError("");
-    setSubmitSuccess(false);
-    onAddLog("info", `Initiating direct indexing for custom dataset: "${rawTitle}"...`);
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
 
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      await processFile(e.target.files[0]);
+    }
+  };
+
+  // Process selected file
+  const processFile = async (file: File) => {
+    setIsUploading(true);
+    setUploadError("");
+    addLogMessage("info", `Starting local processing of file: "${file.name}"...`);
+
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      
+      if (!["txt", "md", "csv", "pdf", "png", "jpg", "jpeg"].includes(extension || "")) {
+        throw new Error("Unsupported format. Please upload PDF, TXT, CSV, MD, or PNG/JPG images.");
+      }
+
+      const reader = new FileReader();
+
+      // Read binary text or Base64 based on file type
+      if (["txt", "md", "csv"].includes(extension || "")) {
+        reader.onload = async (event) => {
+          const content = event.target?.result as string;
+          await sendToUploadAPI(file.name, content, null, null);
+        };
+        reader.readAsText(file);
+      } else {
+        // PDF or Image - Read as Data URL for Gemini OCR
+        reader.onload = async (event) => {
+          const dataUrl = event.target?.result as string;
+          const commaIndex = dataUrl.indexOf(",");
+          if (commaIndex === -1) throw new Error("Could not parse file data.");
+          
+          const base64Data = dataUrl.substring(commaIndex + 1);
+          let mimeType = file.type;
+          
+          // PDF Mime type fallback
+          if (extension === "pdf") mimeType = "application/pdf";
+          
+          await sendToUploadAPI(file.name, null, base64Data, mimeType);
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || "An error occurred during file read.");
+      addLogMessage("error", `File read failure: ${err.message || err}`);
+      setIsUploading(false);
+    }
+  };
+
+  // Dispatch to Backend Express Endpoint
+  const sendToUploadAPI = async (title: string, content: string | null, base64Data: string | null, mimeType: string | null) => {
+    addLogMessage("info", `Sending "${title}" to server-side RAG indexing pipeline...`);
     try {
       const response = await fetch("/api/document/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: rawTitle,
-          content: rawText,
-          base64Data: null,
-          mimeType: null
-        })
+        headers: { 
+          "Content-Type": "application/json",
+          "user-id": userId || ""
+        },
+        body: JSON.stringify({ title, content, base64Data, mimeType })
       });
 
-      const data = await response.json();
+      const result = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "RAG seeder failed to process paragraphs.");
+        throw new Error(result.error || "Server upload failed.");
       }
 
-      setSubmitSuccess(true);
-      setRawTitle("");
-      setRawText("");
-      onAddLog("info", `Direct seeder completed for "${rawTitle}". Generated ${data.chunksIndexed} new vector segments.`);
-      await fetchLogs();
+      onUploadSuccess(result.document);
+      addLogMessage("info", `Successfully indexed "${title}". Created ${result.chunksIndexed} semantic vectors.`);
+      
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: any) {
-      setSubmitError(err.message || "Seeding failed.");
-      onAddLog("error", `Direct dataset seeder failed: ${err.message || err}`);
+      setUploadError(err.message || "Upload indexing failed.");
+      addLogMessage("error", `RAG upload failed for "${title}": ${err.message || err}`);
     } finally {
-      setIsSubmitting(false);
+      setIsUploading(false);
     }
   };
 
-  const filteredLogs = activeLogs.filter(log => {
-    if (filterLevel === "ALL") return true;
-    return log.level.toUpperCase() === filterLevel;
-  });
+  // Delete Document
+  const handleDeleteDoc = async (id: string, title: string) => {
+    try {
+      addLogMessage("info", `Deleting document and vector records for: "${title}"`);
+      const response = await fetch(`/api/document/${id}`, {
+        method: "DELETE",
+        headers: {
+          "user-id": userId || ""
+        }
+      });
+      if (response.ok) {
+        onDeleteSuccess(id);
+        addLogMessage("info", `Removed document: "${title}"`);
+      } else {
+        throw new Error("Could not delete from backend index.");
+      }
+    } catch (err: any) {
+      addLogMessage("error", `Delete failed: ${err.message || err}`);
+    }
+  };
 
   return (
-    <div className="p-6 space-y-6 h-full overflow-y-auto bg-bg-base">
-      
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-emerald-900/10 pb-4 gap-4">
-        <div>
-          <h2 className="text-xl font-display font-bold text-white flex items-center space-x-2">
-            <Database className="w-5 h-5 text-emerald-400" />
-            <span>Admin & Database Console</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Flawlessly seed raw text corpuses, inspect index density, and monitor operational telemetry logs.
-          </p>
+    <div 
+      className={`fixed md:relative inset-y-0 left-0 z-40 flex flex-col h-full border-r border-emerald-900/30 bg-bg-sidebar overflow-hidden transition-all duration-300 shrink-0 ${
+        collapsed 
+          ? "-translate-x-full md:translate-x-0" 
+          : "translate-x-0"
+      }`}
+      id="sidebar-panel"
+      style={{ 
+        width: collapsed ? 0 : (isMobile ? "280px" : `${width}px`),
+        minWidth: collapsed ? 0 : (isMobile ? "0px" : `${width}px`),
+        borderRightWidth: collapsed ? 0 : 1
+      }}
+    >
+      {/* Mobile Swipe Gesture Tip Indicator */}
+      {!collapsed && (
+        <div className="md:hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center animate-pulse pointer-events-none" title="Swipe left to hide">
+          <div className="w-1 h-4 bg-emerald-500/40 rounded-full"></div>
+        </div>
+      )}
+      {/* App Branding */}
+      <div className="p-5 border-b border-emerald-900/20 bg-bg-base/40 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <TransparentMapLogo 
+            src="/2.png" 
+            removeColor="black" 
+            className="w-8 h-8" 
+            glowColor="rgba(16, 185, 129, 0.4)" 
+            glowRadius="3px" 
+          />
+          <div>
+            <h1 className="font-display font-bold text-sm tracking-tight text-emerald-50 leading-none">BanglaMind <span className="text-emerald-500">AI</span></h1>
+            <span className="text-[9px] text-emerald-600/80 font-mono">BD-CENTRIC RAG v1.0</span>
+          </div>
         </div>
 
-        {/* Sub-tab selection */}
-        <div className="flex p-1 bg-[#050807] rounded-xl border border-emerald-900/15">
-          <button
-            onClick={() => setAdminTab("DB")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
-              adminTab === "DB"
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10"
-                : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-            }`}
+        {/* Mobile close menu button */}
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/20 transition-all cursor-pointer border border-emerald-900/20 bg-[#050807]/50"
+            title="Close Menu"
           >
-            <Database className="w-3.5 h-3.5" />
-            <span>DB & Seeding Logs</span>
+            <X className="w-4 h-4" />
           </button>
-
-          <button
-            onClick={() => setAdminTab("TELEMETRY")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
-              adminTab === "TELEMETRY"
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10"
-                : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-            }`}
-          >
-            <LineChart className="w-3.5 h-3.5" />
-            <span>Telemetry & Stats</span>
-          </button>
-
-          <button
-            onClick={() => setAdminTab("USERS")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer ${
-              adminTab === "USERS"
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10"
-                : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>User Stats</span>
-          </button>
-        </div>
+        )}
       </div>
 
-      {adminTab === "TELEMETRY" && (
-        <ResearchDashboard stats={stats} addLogMessage={onAddLog} documents={documents} isEmbedded={true} />
-      )}
-
-      {adminTab === "DB" && (
-        <>
-          {/* Database stats monitor cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#0A100D]/40 space-y-2 shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
-              <div className="flex items-center justify-between text-slate-500 text-[10px] font-mono uppercase">
-                <span>Operational Mode</span>
-                <Cpu className="w-4 h-4 text-emerald-400 animate-pulse" />
-              </div>
-              <p className="text-sm font-bold text-slate-200">Server Authorized Full-Stack</p>
-              <div className="text-[10px] text-slate-500 leading-tight font-mono">
-                All API Keys & vector indices are securely maintained server-side.
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#0A100D]/40 space-y-2 shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
-              <div className="flex items-center justify-between text-slate-500 text-[10px] font-mono uppercase">
-                <span>Index Density</span>
-                <Database className="w-4 h-4 text-emerald-400" />
-              </div>
-              <p className="text-sm font-bold text-slate-200">{documentCount} Registered Documents</p>
-              <div className="text-[10px] text-slate-500 leading-tight font-mono">
-                RAG hybrid search runs over pre-seeded and user-uploaded resources.
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#0A100D]/40 space-y-2 shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
-              <div className="flex items-center justify-between text-slate-500 text-[10px] font-mono uppercase">
-                <span>Grounding Security</span>
-                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 px-1.5 py-0.5 rounded-full font-mono">ENFORCED</span>
-              </div>
-              <p className="text-sm font-bold text-slate-200">Anti-Hallucination Guardrails</p>
-              <div className="text-[10px] text-slate-500 leading-tight font-mono">
-                Citations and sources are strictly calculated via cosine semantic overlap.
-              </div>
-            </div>
-
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Main sidebar contents scroll container */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
         
-        {/* Dataset Seeder Form */}
-        <div className="p-5 rounded-xl border border-emerald-900/20 bg-[#0A100D]/40 flex flex-col justify-between shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-display font-bold text-sm text-white flex items-center space-x-2">
-                <Plus className="w-4 h-4 text-emerald-400" />
-                <span>Raw Dataset Seeder</span>
-              </h3>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                Paste structured texts (e.g. legal bills, university admissions, agricultural sheets) to index immediately.
-              </p>
-            </div>
-
-            <form onSubmit={handleDatasetSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase text-slate-500">Document Title / Tag</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Bangladesh Cyber Security Act 2026 Summary"
-                  value={rawTitle}
-                  onChange={(e) => setRawTitle(e.target.value)}
-                  className="w-full bg-[#050807]/90 border border-emerald-900/25 focus:border-emerald-500/40 focus:outline-none rounded-lg p-2.5 text-xs text-slate-300 font-mono transition-colors placeholder-slate-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase text-slate-500">Raw Dataset Content</label>
-                <textarea
-                  required
-                  placeholder="Paste paragraph blocks here..."
-                  rows={4}
-                  value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
-                  className="w-full bg-[#050807]/90 border border-emerald-900/25 focus:border-emerald-500/40 focus:outline-none rounded-lg p-2.5 text-xs text-slate-300 font-mono resize-none leading-relaxed transition-colors placeholder-slate-500"
-                />
-              </div>
-
-              {submitError && (
-                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-lg text-[10px] text-rose-400 flex items-start space-x-2 font-mono">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{submitError}</span>
-                </div>
-              )}
-
-              {submitSuccess && (
-                <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] text-emerald-400 flex items-start space-x-2 font-mono">
-                  <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Success! Dataset text has been chunked and vector embeddings generated.</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSubmitting || !rawTitle.trim() || !rawText.trim()}
-                className={`w-full py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                  isSubmitting 
-                    ? "bg-emerald-950/20 text-emerald-800 cursor-not-allowed border border-emerald-950/30" 
-                    : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20"
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Indexing Vector Embeddings...</span>
-                  </>
-                ) : (
-                  <>
-                    <Database className="w-3.5 h-3.5" />
-                    <span>Generate Semantic Index</span>
-                  </>
-                )}
-              </button>
-            </form>
+        {/* Assistant Modes Section */}
+        <div>
+          <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3 px-1">Assistant Modes</h2>
+          <div className="space-y-1.5">
+            {modes.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentMode === item.mode;
+              return (
+                <button
+                  key={item.mode}
+                  id={`mode-btn-${item.mode.toLowerCase()}`}
+                  onClick={() => setMode(item.mode)}
+                  className={`w-full text-left p-2.5 rounded-lg transition-all duration-200 flex items-start space-x-3 group ${
+                    isActive 
+                      ? "bg-emerald-900/20 text-emerald-400 border border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.05)]" 
+                      : "hover:bg-emerald-900/10 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${isActive ? item.color : "text-slate-500 group-hover:text-slate-300"}`} />
+                  <div className="overflow-hidden">
+                    <div className="font-medium text-xs leading-none mb-1 flex items-center">
+                      <span>{item.label}</span>
+                      {isActive && <Check className="w-3 h-3 text-emerald-400 ml-1.5 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 group-hover:text-slate-400 truncate leading-tight">{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Console System Log Viewer */}
-        <div className="p-5 rounded-xl border border-emerald-900/20 bg-[#0A100D]/40 flex flex-col justify-between h-[360px] shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
-          <div className="flex flex-col h-full space-y-3">
-            {/* Header bar of logger */}
-            <div className="flex items-center justify-between">
+        {/* Web Search Feature */}
+        <div>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-900/30 bg-[#0A100D] cursor-pointer hover:bg-emerald-900/10 transition-colors" onClick={() => setWebSearchEnabled && setWebSearchEnabled(!webSearchEnabled)}>
+            <div className="flex items-center space-x-3">
+              <Search className={`w-4 h-4 ${webSearchEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
               <div>
-                <h3 className="font-display font-bold text-sm text-white flex items-center space-x-2">
-                  <Terminal className="w-4 h-4 text-emerald-400" />
-                  <span>System Activity Telemetry</span>
-                </h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Real-time operational stream from Express server and Gemini SDK.
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  onClick={fetchLogs}
-                  className="p-1.5 bg-[#050807]/80 hover:bg-emerald-950/20 text-slate-400 hover:text-slate-200 border border-emerald-900/15 rounded-lg transition-colors cursor-pointer"
-                  title="Force refresh logs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={clearLogs}
-                  className="p-1.5 bg-[#050807]/80 hover:bg-emerald-950/20 text-slate-400 hover:text-rose-400 border border-emerald-900/15 rounded-lg transition-colors cursor-pointer"
-                  title="Clear console log list"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="text-xs font-semibold text-slate-200">Web Search</div>
+                <div className="text-[10px] text-slate-500">Include live internet results</div>
               </div>
             </div>
-
-            {/* Log filter buttons */}
-            <div className="flex space-x-1.5 border-b border-emerald-900/15 pb-2">
-              {["ALL", "INFO", "WARN", "ERROR"].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setFilterLevel(level as any)}
-                  className={`px-2.5 py-1 rounded text-[9px] font-mono font-semibold transition-all uppercase border ${
-                    filterLevel === level
-                      ? "bg-emerald-900/20 border-emerald-500/25 text-emerald-400 font-bold"
-                      : "bg-[#050807]/80 border-transparent text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {level}
-                </button>
-              ))}
+            <div className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${webSearchEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${webSearchEnabled ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
             </div>
+          </div>
+        </div>
 
-            {/* Terminal output console */}
-            <div className="flex-1 bg-[#050807]/90 border border-emerald-900/10 rounded-lg p-3 overflow-y-auto font-mono text-[10px] leading-relaxed text-slate-400 space-y-2 scrollbar-thin">
-              {filteredLogs.length > 0 ? (
-                filteredLogs.map((log) => {
-                  let badgeColor = "text-emerald-400 bg-emerald-500/5";
-                  if (log.level === "warn") badgeColor = "text-amber-400 bg-amber-500/5";
-                  if (log.level === "error") badgeColor = "text-rose-400 bg-rose-500/5";
+        {/* Chat History Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold">History</h2>
+            <button
+              onClick={onNewChat}
+              className="p-1 rounded bg-emerald-900/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+              title="New Chat Session"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
+          {/* History Search Bar */}
+          <div className="mb-2.5 px-1 relative">
+            <input
+              type="text"
+              id="sidebar-history-search"
+              placeholder="Search chat history..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              className="w-full text-xs bg-slate-950 border border-emerald-900/30 rounded-lg py-1.5 pl-8 pr-7 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            {historySearch && (
+              <button
+                onClick={() => setHistorySearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-400 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+            {chatSessions.length === 0 ? (
+              <div className="text-center py-4 px-2 border border-dashed border-emerald-900/30 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-emerald-900/40 mx-auto mb-2" />
+                <p className="text-[10px] text-slate-500">No previous sessions</p>
+              </div>
+            ) : chatSessions.filter(s => s.title.toLowerCase().includes(historySearch.toLowerCase())).length === 0 ? (
+              <div className="text-center py-4 px-2 border border-dashed border-emerald-900/30 rounded-lg">
+                <p className="text-[10px] text-slate-500">No matches found</p>
+              </div>
+            ) : (
+              chatSessions
+                .filter(s => s.title.toLowerCase().includes(historySearch.toLowerCase()))
+                .map((session) => {
+                  const isActive = currentSessionId === session.id;
                   return (
-                    <div key={log.id} className="flex items-start space-x-1.5 hover:bg-slate-900/20 p-1 rounded">
-                      <span className="text-[9px] text-slate-600 select-none">
-                        [{new Date(log.timestamp).toLocaleTimeString()}]
-                      </span>
-                      <span className={`px-1 rounded uppercase font-bold tracking-wider shrink-0 text-[8px] ${badgeColor}`}>
-                        {log.level}
-                      </span>
-                      <span className="text-slate-300 break-all">{log.message}</span>
+                    <div
+                      key={session.id}
+                      className={`w-full group relative flex items-center rounded-lg transition-all ${
+                        isActive 
+                          ? "bg-emerald-900/20 text-emerald-400 border border-emerald-500/20" 
+                          : "hover:bg-emerald-900/10 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <button
+                        onClick={() => onLoadSession && onLoadSession(session.id)}
+                        className="flex-1 text-left p-2 flex items-center space-x-2.5 overflow-hidden cursor-pointer"
+                      >
+                        <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                        <div className="overflow-hidden flex-1">
+                          <div className="font-medium text-xs leading-none mb-0.5 truncate">{session.title}</div>
+                          <div className="text-[9px] text-slate-500 truncate flex items-center">
+                            <Clock className="w-2.5 h-2.5 mr-1" />
+                            {session.updatedAt?.toDate ? session.updatedAt.toDate().toLocaleDateString() : 'Just now'}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this conversation session?")) {
+                            onDeleteSession && onDeleteSession(session.id);
+                          }
+                        }}
+                        className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/20 rounded transition-all cursor-pointer z-10"
+                        title="Delete Session"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })
+            )}
+          </div>
+        </div>
+
+        {/* Smart RAG Document Management */}
+        {isAdmin && (
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold">Retrieval Sources</h2>
+              <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15">
+                {documents.length} Indexed
+              </span>
+            </div>
+
+            {/* Drag & Drop File Indexer */}
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border border-dashed rounded-lg p-4 text-center cursor-pointer transition-all duration-200 group ${
+                isDragging 
+                  ? "border-emerald-500 bg-emerald-500/5" 
+                  : "border-emerald-900/30 hover:border-emerald-500/30 bg-bg-base/60"
+              }`}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".txt,.md,.csv,.pdf,.png,.jpg,.jpeg"
+                className="hidden" 
+              />
+              {isUploading ? (
+                <div className="space-y-2">
+                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-[11px] text-slate-300 animate-pulse">Analyzing & Chunking...</p>
+                  <p className="text-[9px] text-slate-500">Using server-side Gemini OCR</p>
+                </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-600 text-[10px] space-x-1.5">
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>No system execution logs matching criteria.</span>
+                <div className="space-y-1.5">
+                  <Upload className="w-5 h-5 mx-auto text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                  <div className="text-[11px] font-medium text-slate-300">
+                    Upload & Index Datasets
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-tight">
+                    Drag PDF, TXT, CSV, or Image here
+                  </p>
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-      </div>
-      </>
-      )}
-
-      {adminTab === "USERS" && (
-        <div className="p-5 rounded-xl border border-emerald-900/20 bg-[#0A100D]/40 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#050807]/60 space-y-2">
-              <div className="text-slate-500 text-[10px] font-mono uppercase">Total Unique Accounts</div>
-              <p className="text-2xl font-bold text-emerald-400 font-mono">{activeUsers.length}</p>
-            </div>
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#050807]/60 space-y-2">
-              <div className="text-slate-500 text-[10px] font-mono uppercase">Total Dispatched Prompts</div>
-              <p className="text-2xl font-bold text-emerald-400 font-mono">
-                {activeUsers.reduce((sum, u) => sum + u.queriesCount, 0)}
-              </p>
-            </div>
-            <div className="p-4 rounded-xl border border-emerald-900/15 bg-[#050807]/60 space-y-2">
-              <div className="text-slate-500 text-[10px] font-mono uppercase">Avg. Response Time</div>
-              <p className="text-2xl font-bold text-emerald-400 font-mono">
-                {activeUsers.length > 0 
-                  ? Math.round(activeUsers.reduce((sum, u) => sum + u.avgLatency, 0) / activeUsers.length)
-                  : 0}ms
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <h3 className="font-display font-bold text-sm text-white flex items-center space-x-2">
-              <Users className="w-4 h-4 text-emerald-400" />
-              <span>Active User Session Statistics</span>
-            </h3>
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              Real-time lookup of individual user engagement, dispatch counts, latency averages, and token workloads.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto border border-emerald-900/10 rounded-lg">
-            <table className="w-full text-left font-mono text-[11px] text-slate-300">
-              <thead className="bg-[#050807] text-[9px] uppercase tracking-wider text-slate-500 border-b border-emerald-900/15">
-                <tr>
-                  <th className="p-3">User UID</th>
-                  <th className="p-3 text-center">Dispatched Queries</th>
-                  <th className="p-3 text-center">Avg Response Latency</th>
-                  <th className="p-3 text-center">Cumulative Tokens</th>
-                  <th className="p-3 text-right font-semibold">Last Session Activity</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-900/10">
-                {activeUsers.length > 0 ? (
-                  activeUsers.map((user) => (
-                    <tr 
-                      key={user.userId} 
-                      onClick={() => handleUserSelect(user.userId)}
-                      className="hover:bg-emerald-950/20 transition-colors cursor-pointer group"
-                      title="Click to preview this user's active chats and telemetry"
-                    >
-                      <td className="p-3 font-semibold text-slate-200 flex items-center space-x-2">
-                        <Users className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors" />
-                        <span className="truncate max-w-[150px]">{user.userId}</span>
-                      </td>
-                      <td className="p-3 text-center text-emerald-400 font-bold">
-                        {user.queriesCount}
-                      </td>
-                      <td className="p-3 text-center text-emerald-400">
-                        {user.avgLatency}ms
-                      </td>
-                      <td className="p-3 text-center text-slate-400">
-                        ~{user.tokensUsed.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-right text-slate-500 text-[10px]">
-                        <div className="flex items-center justify-end space-x-2">
-                          <span>{new Date(user.lastActive).toLocaleString()}</span>
-                          <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-900/30 text-[9px] group-hover:bg-emerald-600 group-hover:text-slate-950 transition-all font-bold">
-                            PREVIEW
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-500 text-xs">
-                      <div className="flex flex-col items-center justify-center space-y-1">
-                        <Users className="w-5 h-5 text-slate-600 mb-1" />
-                        <span>No active user accounts tracked in current execution session.</span>
-                        <span className="text-[10px] text-slate-600">Dispatched chat prompts from any client account will stream here dynamically.</span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* User Session Preview Modal for Admin */}
-      {selectedUserUid && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="bg-[#050807] border border-emerald-900/35 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-[0_0_50px_rgba(16,185,129,0.15)] overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-emerald-900/15 bg-bg-base/60 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-emerald-950/40 border border-emerald-500/20 rounded-xl">
-                  <Users className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-sm text-white flex items-center gap-2">
-                    <span>Admin User Session Preview</span>
-                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/10 font-mono font-bold">
-                      SECURE ROOT VIEW
-                    </span>
-                  </h3>
-                  <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-md sm:max-w-xl">
-                    Target UID: {selectedUserUid}
-                  </p>
-                </div>
+            {uploadError && (
+              <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded text-[10px] text-rose-400 flex items-start space-x-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>{uploadError}</span>
               </div>
+            )}
 
-              <button
-                onClick={() => setSelectedUserUid(null)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 flex overflow-hidden">
-              {/* Left Column: Chat Sessions List */}
-              <div className="w-1/3 border-r border-emerald-900/15 flex flex-col bg-[#070b09]">
-                <div className="p-3 border-b border-emerald-900/15 bg-black/30">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">
-                    Stored Conversations ({userSessions.length})
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-thin">
-                  {isLoadingSessions ? (
-                    <div className="h-full flex flex-col items-center justify-center space-y-2 text-slate-500 text-xs">
-                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                      <span>Querying chat records...</span>
-                    </div>
-                  ) : userSessions.length > 0 ? (
-                    userSessions.map((session) => (
+            {/* Document Sources List */}
+            <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1 font-sans">
+              {documents.map((doc) => {
+                const isSelected = selectedDocIds.includes(doc.id);
+                return (
+                  <div 
+                    key={doc.id}
+                    className={`p-2 rounded-lg border flex items-center justify-between transition-all group ${
+                      isSelected 
+                        ? "border-emerald-500/25 bg-emerald-900/10" 
+                        : "border-emerald-900/15 bg-bg-base/40"
+                    }`}
+                  >
+                    <div className="flex items-start space-x-2.5 overflow-hidden flex-1">
                       <button
-                        key={session.id}
-                        onClick={() => setSelectedPreviewSession(session)}
-                        className={`w-full text-left p-2.5 rounded-lg transition-all duration-150 flex flex-col gap-1.5 border cursor-pointer ${
-                          selectedPreviewSession?.id === session.id
-                            ? "bg-emerald-950/20 border-emerald-500/25 text-emerald-400"
-                            : "bg-transparent border-transparent hover:bg-emerald-950/10 text-slate-300"
+                        onClick={() => toggleDocSelection(doc.id)}
+                        className={`w-3.5 h-3.5 rounded border mt-0.5 flex items-center justify-center transition-all shrink-0 ${
+                          isSelected 
+                            ? "border-emerald-500 bg-emerald-500 text-slate-950" 
+                            : "border-emerald-900/30 hover:border-emerald-500/20"
                         }`}
                       >
-                        <div className="font-medium text-[11px] truncate leading-tight flex items-center gap-1">
-                          <MessageSquare className="w-3 h-3 shrink-0 opacity-70" />
-                          <span>{session.title || "Untitled Session"}</span>
-                        </div>
-                        <div className="text-[9px] text-slate-500 font-mono flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5 shrink-0" />
-                          <span>
-                            {session.updatedAt?.toMillis 
-                              ? new Date(session.updatedAt.toMillis()).toLocaleString()
-                              : "Recently active"}
-                          </span>
-                        </div>
+                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                       </button>
-                    ))
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center p-4 text-center text-slate-600 text-[10px]">
-                      <MessageSquare className="w-6 h-6 text-slate-700 mb-1" />
-                      <span>No conversations found.</span>
-                      <span className="text-[9px] text-slate-700 mt-1">This user hasn't initialized any chat threads yet.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Active Conversation Transcript Preview */}
-              <div className="flex-1 flex flex-col bg-[#050807]">
-                {selectedPreviewSession ? (
-                  <>
-                    {/* Transcript Session Title */}
-                    <div className="p-3 bg-black/40 border-b border-emerald-900/15 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase tracking-widest">
-                          Active Session Transcript
-                        </span>
-                        <h4 className="font-semibold text-slate-200 text-xs truncate max-w-sm mt-0.5">
-                          {selectedPreviewSession.title || "Untitled Session"}
-                        </h4>
-                      </div>
-                      <span className="text-[9px] font-mono bg-emerald-900/20 border border-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">
-                        {selectedPreviewSession.messages.length} Messages
-                      </span>
-                    </div>
-
-                    {/* Messages container */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
-                      {selectedPreviewSession.messages && selectedPreviewSession.messages.length > 0 ? (
-                        selectedPreviewSession.messages.map((msg, index) => {
-                          const isUser = msg.role === "user";
-                          return (
-                            <div 
-                              key={msg.id || index} 
-                              className={`flex flex-col max-w-[85%] ${
-                                isUser ? "ml-auto items-end" : "mr-auto items-start"
-                              }`}
-                            >
-                              <span className="text-[8px] font-mono text-slate-500 mb-1">
-                                {isUser ? "USER PROMPT" : "SYSTEM RESPONSE"}
-                              </span>
-                              <div className={`p-3 rounded-xl text-xs leading-relaxed ${
-                                isUser 
-                                  ? "bg-emerald-900/20 border border-emerald-500/25 text-slate-200 rounded-tr-none" 
-                                  : "bg-slate-900/40 border border-slate-800 text-slate-300 rounded-tl-none"
-                              }`}>
-                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                
-                                {!isUser && msg.citations && msg.citations.length > 0 && (
-                                  <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-500">
-                                    <span className="font-bold">Sources: </span>
-                                    {msg.citations.join(", ")}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-slate-500 text-xs">
-                          <span>Empty transcript.</span>
+                      <div className="overflow-hidden leading-none">
+                        <div className="font-medium text-[11px] text-slate-200 truncate pr-1" title={doc.title}>
+                          {doc.title}
                         </div>
-                      )}
+                        <div className="flex items-center space-x-2 mt-1 text-[9px] text-slate-500 font-mono">
+                          <span className="uppercase text-emerald-500 font-bold">{doc.type}</span>
+                          <span>•</span>
+                          <span>{doc.size}</span>
+                          <span>•</span>
+                          <span>{doc.wordCount} w</span>
+                        </div>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">
-                    <MessageSquare className="w-8 h-8 text-slate-700 mb-2" />
-                    <span className="font-medium text-xs text-slate-400">Select a Conversation Thread</span>
-                    <p className="text-[10px] text-slate-600 max-w-xs mt-1">
-                      Choose any session from the left column to inspect the full interactive conversation history for this active account.
-                    </p>
+                    
+                    {/* Action buttons (only allow deleting user uploaded documents) */}
+                    {!doc.isPreseeded ? (
+                      <button
+                        onClick={() => handleDeleteDoc(doc.id, doc.title)}
+                        className="text-slate-600 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        title="Remove from knowledge base"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-[8px] font-mono tracking-widest text-emerald-500 bg-emerald-500/10 py-0.5 px-1 rounded scale-90 shrink-0 select-none">
+                        SYSTEM
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-3 bg-[#030504] border-t border-emerald-900/15 flex items-center justify-between text-[9px] text-slate-500 font-mono px-5">
-              <span>Security Logging Status: AUDITING ACTIVE</span>
-              <span>Audit session token: SHA256_{Math.random().toString(36).substring(2, 10).toUpperCase()}</span>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
+      </div>
+
+      {/* Footer Meta */}
+      <div className="p-4 border-t border-emerald-900/20 bg-bg-insight/60 text-[10px] text-slate-500 flex items-center space-x-2">
+        <Clock className="w-3.5 h-3.5 text-slate-500" />
+        <span>Local Session Connected</span>
+      </div>
     </div>
   );
 }
