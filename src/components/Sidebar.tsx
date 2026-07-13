@@ -1,0 +1,614 @@
+import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
+import TransparentMapLogo from "./TransparentMapLogo";
+import { 
+  AssistantMode, 
+  Document 
+} from "../types";
+import { ChatSession } from "../lib/chatSessions";
+import { 
+  Bot, 
+  GraduationCap, 
+  Code, 
+  Search, 
+  Sprout, 
+  Building, 
+  Heart, 
+  Briefcase, 
+  Upload, 
+  Trash2, 
+  Check, 
+  FileText, 
+  Plus, 
+  Clock, 
+  AlertCircle,
+  MessageSquare,
+  BookOpen,
+  LineChart,
+  Database,
+  X
+} from "lucide-react";
+
+interface SidebarProps {
+  currentMode: AssistantMode;
+  setMode: (mode: AssistantMode) => void;
+  documents: Document[];
+  selectedDocIds: string[];
+  toggleDocSelection: (id: string) => void;
+  onUploadSuccess: (newDoc: Document) => void;
+  onDeleteSuccess: (id: string) => void;
+  addLogMessage: (type: "info" | "warn" | "error", msg: string) => void;
+  userId?: string;
+  webSearchEnabled?: boolean;
+  setWebSearchEnabled?: (enabled: boolean) => void;
+  chatSessions?: ChatSession[];
+  currentSessionId?: string | null;
+  onLoadSession?: (sessionId: string) => void;
+  onNewChat?: () => void;
+  isAdmin?: boolean;
+  onDeleteSession?: (id: string) => Promise<void>;
+  width?: number;
+  collapsed?: boolean;
+  onClose?: () => void;
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
+}
+
+export default function Sidebar({
+  currentMode,
+  setMode,
+  documents,
+  selectedDocIds,
+  toggleDocSelection,
+  onUploadSuccess,
+  onDeleteSuccess,
+  addLogMessage,
+  userId,
+  webSearchEnabled,
+  setWebSearchEnabled,
+  chatSessions = [],
+  currentSessionId,
+  onLoadSession,
+  onNewChat,
+  isAdmin = false,
+  onDeleteSession,
+  width = 320,
+  collapsed = false,
+  onClose,
+  activeTab,
+  setActiveTab
+}: SidebarProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const modes = [
+    { mode: AssistantMode.GENERAL, label: "BanglaMind AI", desc: "Multilingual generic assistant", icon: Bot, color: "text-emerald-400" },
+    { mode: AssistantMode.STUDENT, label: "Student Assistant", desc: "Homework, courses & roadmaps", icon: GraduationCap, color: "text-blue-400" },
+    { mode: AssistantMode.PROGRAMMING, label: "Programming Assistant", desc: "Code generation & debugging", icon: Code, color: "text-indigo-400" },
+    { mode: AssistantMode.RESEARCH, label: "Research Assistant", desc: "Literature review & hypothesis", icon: Search, color: "text-purple-400" },
+    { mode: AssistantMode.AGRICULTURE, label: "Agriculture Assistant", desc: "Crop diagnosis & fertilizer help", icon: Sprout, color: "text-green-400" },
+    { mode: AssistantMode.GOVERNMENT, label: "Government Portal", desc: "NID, passports & licenses", icon: Building, color: "text-amber-400" },
+    { mode: AssistantMode.HEALTH, label: "Health Awareness", desc: "Terminology, nutrition & terminology", icon: Heart, color: "text-rose-400" },
+    { mode: AssistantMode.BUSINESS, label: "Local Business Hub", desc: "Taxes, licensing & directories", icon: Briefcase, color: "text-cyan-400" }
+  ];
+
+  // Drag and Drop handlers
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      await processFile(e.target.files[0]);
+    }
+  };
+
+  // Process selected file
+  const processFile = async (file: File) => {
+    setIsUploading(true);
+    setUploadError("");
+    addLogMessage("info", `Starting local processing of file: "${file.name}"...`);
+
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      
+      if (!["txt", "md", "csv", "pdf", "png", "jpg", "jpeg"].includes(extension || "")) {
+        throw new Error("Unsupported format. Please upload PDF, TXT, CSV, MD, or PNG/JPG images.");
+      }
+
+      const reader = new FileReader();
+
+      // Read binary text or Base64 based on file type
+      if (["txt", "md", "csv"].includes(extension || "")) {
+        reader.onload = async (event) => {
+          const content = event.target?.result as string;
+          await sendToUploadAPI(file.name, content, null, null);
+        };
+        reader.readAsText(file);
+      } else {
+        // PDF or Image - Read as Data URL for Gemini OCR
+        reader.onload = async (event) => {
+          const dataUrl = event.target?.result as string;
+          const commaIndex = dataUrl.indexOf(",");
+          if (commaIndex === -1) throw new Error("Could not parse file data.");
+          
+          const base64Data = dataUrl.substring(commaIndex + 1);
+          let mimeType = file.type;
+          
+          // PDF Mime type fallback
+          if (extension === "pdf") mimeType = "application/pdf";
+          
+          await sendToUploadAPI(file.name, null, base64Data, mimeType);
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || "An error occurred during file read.");
+      addLogMessage("error", `File read failure: ${err.message || err}`);
+      setIsUploading(false);
+    }
+  };
+
+  // Dispatch to Backend Express Endpoint
+  const sendToUploadAPI = async (title: string, content: string | null, base64Data: string | null, mimeType: string | null) => {
+    addLogMessage("info", `Sending "${title}" to server-side RAG indexing pipeline...`);
+    try {
+      const response = await fetch("/api/document/upload", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "user-id": userId || ""
+        },
+        body: JSON.stringify({ title, content, base64Data, mimeType })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Server upload failed.");
+      }
+
+      onUploadSuccess(result.document);
+      addLogMessage("info", `Successfully indexed "${title}". Created ${result.chunksIndexed} semantic vectors.`);
+      
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err: any) {
+      setUploadError(err.message || "Upload indexing failed.");
+      addLogMessage("error", `RAG upload failed for "${title}": ${err.message || err}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Delete Document
+  const handleDeleteDoc = async (id: string, title: string) => {
+    try {
+      addLogMessage("info", `Deleting document and vector records for: "${title}"`);
+      const response = await fetch(`/api/document/${id}`, {
+        method: "DELETE",
+        headers: {
+          "user-id": userId || ""
+        }
+      });
+      if (response.ok) {
+        onDeleteSuccess(id);
+        addLogMessage("info", `Removed document: "${title}"`);
+      } else {
+        throw new Error("Could not delete from backend index.");
+      }
+    } catch (err: any) {
+      addLogMessage("error", `Delete failed: ${err.message || err}`);
+    }
+  };
+
+  return (
+    <div 
+      className={`fixed md:relative inset-y-0 left-0 z-40 flex flex-col h-full border-r border-emerald-900/30 bg-bg-sidebar overflow-hidden transition-all duration-300 shrink-0 ${
+        collapsed 
+          ? "-translate-x-full md:translate-x-0" 
+          : "translate-x-0"
+      }`}
+      id="sidebar-panel"
+      style={{ 
+        width: collapsed ? 0 : (isMobile ? "280px" : `${width}px`),
+        minWidth: collapsed ? 0 : (isMobile ? "0px" : `${width}px`),
+        borderRightWidth: collapsed ? 0 : 1
+      }}
+    >
+      {/* Mobile Swipe Gesture Tip Indicator */}
+      {!collapsed && (
+        <div className="md:hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center animate-pulse pointer-events-none" title="Swipe left to hide">
+          <div className="w-1 h-4 bg-emerald-500/40 rounded-full"></div>
+        </div>
+      )}
+      {/* App Branding */}
+      <div className="p-5 border-b border-emerald-900/20 bg-bg-base/40 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <TransparentMapLogo 
+            src="/bd_log_2.png" 
+            removeColor="black" 
+            className="w-8 h-8" 
+            glowColor="rgba(16, 185, 129, 0.4)" 
+            glowRadius="3px" 
+          />
+          <div>
+            <h1 className="font-display font-bold text-sm tracking-tight text-emerald-50 leading-none">BanglaMind <span className="text-emerald-500">AI</span></h1>
+            <span className="text-[9px] text-emerald-600/80 font-mono">BD-CENTRIC RAG v1.0</span>
+          </div>
+        </div>
+
+        {/* Mobile close menu button */}
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/20 transition-all cursor-pointer border border-emerald-900/20 bg-[#050807]/50"
+            title="Close Menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Main sidebar contents scroll container */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        
+        {/* Portal Navigation Menu (Shown on mobile as a unified menu) */}
+        {isMobile && activeTab && setActiveTab && (
+          <div className="space-y-2 border-b border-emerald-900/15 pb-5">
+            <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3 px-1">Navigation Menu</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab("CHAT");
+                  if (onClose) onClose();
+                }}
+                className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  activeTab === "CHAT"
+                    ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
+                    : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Chat Desk</span>
+              </button>
+
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => {
+                      setActiveTab("KNOWLEDGE");
+                      if (onClose) onClose();
+                    }}
+                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      activeTab === "KNOWLEDGE"
+                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
+                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Lib Base</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab("DASHBOARD");
+                      if (onClose) onClose();
+                    }}
+                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      activeTab === "DASHBOARD"
+                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
+                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
+                    }`}
+                  >
+                    <LineChart className="w-3.5 h-3.5" />
+                    <span>Metrics</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab("ADMIN");
+                      if (onClose) onClose();
+                    }}
+                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      activeTab === "ADMIN"
+                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
+                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
+                    }`}
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    <span>Console</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Assistant Modes Section */}
+        <div>
+          <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3 px-1">Assistant Modes</h2>
+          <div className="space-y-1.5">
+            {modes.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentMode === item.mode;
+              return (
+                <button
+                  key={item.mode}
+                  id={`mode-btn-${item.mode.toLowerCase()}`}
+                  onClick={() => setMode(item.mode)}
+                  className={`w-full text-left p-2.5 rounded-lg transition-all duration-200 flex items-start space-x-3 group ${
+                    isActive 
+                      ? "bg-emerald-900/20 text-emerald-400 border border-emerald-500/20 shadow-[0_0_12px_rgba(16,185,129,0.05)]" 
+                      : "hover:bg-emerald-900/10 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${isActive ? item.color : "text-slate-500 group-hover:text-slate-300"}`} />
+                  <div className="overflow-hidden">
+                    <div className="font-medium text-xs leading-none mb-1 flex items-center">
+                      <span>{item.label}</span>
+                      {isActive && <Check className="w-3 h-3 text-emerald-400 ml-1.5 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 group-hover:text-slate-400 truncate leading-tight">{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Web Search Feature */}
+        <div>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-900/30 bg-[#0A100D] cursor-pointer hover:bg-emerald-900/10 transition-colors" onClick={() => setWebSearchEnabled && setWebSearchEnabled(!webSearchEnabled)}>
+            <div className="flex items-center space-x-3">
+              <Search className={`w-4 h-4 ${webSearchEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
+              <div>
+                <div className="text-xs font-semibold text-slate-200">Web Search</div>
+                <div className="text-[10px] text-slate-500">Include live internet results</div>
+              </div>
+            </div>
+            <div className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${webSearchEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${webSearchEnabled ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+            </div>
+          </div>
+        </div>
+
+        {/* Chat History Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold">History</h2>
+            <button
+              onClick={onNewChat}
+              className="p-1 rounded bg-emerald-900/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
+              title="New Chat Session"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* History Search Bar */}
+          <div className="mb-2.5 px-1 relative">
+            <input
+              type="text"
+              id="sidebar-history-search"
+              placeholder="Search chat history..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              className="w-full text-xs bg-slate-950 border border-emerald-900/30 rounded-lg py-1.5 pl-8 pr-7 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            {historySearch && (
+              <button
+                onClick={() => setHistorySearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-400 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+            {chatSessions.length === 0 ? (
+              <div className="text-center py-4 px-2 border border-dashed border-emerald-900/30 rounded-lg">
+                <MessageSquare className="w-5 h-5 text-emerald-900/40 mx-auto mb-2" />
+                <p className="text-[10px] text-slate-500">No previous sessions</p>
+              </div>
+            ) : chatSessions.filter(s => s.title.toLowerCase().includes(historySearch.toLowerCase())).length === 0 ? (
+              <div className="text-center py-4 px-2 border border-dashed border-emerald-900/30 rounded-lg">
+                <p className="text-[10px] text-slate-500">No matches found</p>
+              </div>
+            ) : (
+              chatSessions
+                .filter(s => s.title.toLowerCase().includes(historySearch.toLowerCase()))
+                .map((session) => {
+                  const isActive = currentSessionId === session.id;
+                  return (
+                    <div
+                      key={session.id}
+                      className={`w-full group relative flex items-center rounded-lg transition-all ${
+                        isActive 
+                          ? "bg-emerald-900/20 text-emerald-400 border border-emerald-500/20" 
+                          : "hover:bg-emerald-900/10 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <button
+                        onClick={() => onLoadSession && onLoadSession(session.id)}
+                        className="flex-1 text-left p-2 flex items-center space-x-2.5 overflow-hidden cursor-pointer"
+                      >
+                        <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                        <div className="overflow-hidden flex-1">
+                          <div className="font-medium text-xs leading-none mb-0.5 truncate">{session.title}</div>
+                          <div className="text-[9px] text-slate-500 truncate flex items-center">
+                            <Clock className="w-2.5 h-2.5 mr-1" />
+                            {session.updatedAt?.toDate ? session.updatedAt.toDate().toLocaleDateString() : 'Just now'}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this conversation session?")) {
+                            onDeleteSession && onDeleteSession(session.id);
+                          }
+                        }}
+                        className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/20 rounded transition-all cursor-pointer z-10"
+                        title="Delete Session"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        </div>
+
+        {/* Smart RAG Document Management */}
+        {isAdmin && (
+          <div>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold">Retrieval Sources</h2>
+              <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15">
+                {documents.length} Indexed
+              </span>
+            </div>
+
+            {/* Drag & Drop File Indexer */}
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border border-dashed rounded-lg p-4 text-center cursor-pointer transition-all duration-200 group ${
+                isDragging 
+                  ? "border-emerald-500 bg-emerald-500/5" 
+                  : "border-emerald-900/30 hover:border-emerald-500/30 bg-bg-base/60"
+              }`}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".txt,.md,.csv,.pdf,.png,.jpg,.jpeg"
+                className="hidden" 
+              />
+              {isUploading ? (
+                <div className="space-y-2">
+                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-[11px] text-slate-300 animate-pulse">Analyzing & Chunking...</p>
+                  <p className="text-[9px] text-slate-500">Using server-side Gemini OCR</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Upload className="w-5 h-5 mx-auto text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                  <div className="text-[11px] font-medium text-slate-300">
+                    Upload & Index Datasets
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-tight">
+                    Drag PDF, TXT, CSV, or Image here
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {uploadError && (
+              <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/20 rounded text-[10px] text-rose-400 flex items-start space-x-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>{uploadError}</span>
+              </div>
+            )}
+
+            {/* Document Sources List */}
+            <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1 font-sans">
+              {documents.map((doc) => {
+                const isSelected = selectedDocIds.includes(doc.id);
+                return (
+                  <div 
+                    key={doc.id}
+                    className={`p-2 rounded-lg border flex items-center justify-between transition-all group ${
+                      isSelected 
+                        ? "border-emerald-500/25 bg-emerald-900/10" 
+                        : "border-emerald-900/15 bg-bg-base/40"
+                    }`}
+                  >
+                    <div className="flex items-start space-x-2.5 overflow-hidden flex-1">
+                      <button
+                        onClick={() => toggleDocSelection(doc.id)}
+                        className={`w-3.5 h-3.5 rounded border mt-0.5 flex items-center justify-center transition-all shrink-0 ${
+                          isSelected 
+                            ? "border-emerald-500 bg-emerald-500 text-slate-950" 
+                            : "border-emerald-900/30 hover:border-emerald-500/20"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </button>
+                      <div className="overflow-hidden leading-none">
+                        <div className="font-medium text-[11px] text-slate-200 truncate pr-1" title={doc.title}>
+                          {doc.title}
+                        </div>
+                        <div className="flex items-center space-x-2 mt-1 text-[9px] text-slate-500 font-mono">
+                          <span className="uppercase text-emerald-500 font-bold">{doc.type}</span>
+                          <span>•</span>
+                          <span>{doc.size}</span>
+                          <span>•</span>
+                          <span>{doc.wordCount} w</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action buttons (only allow deleting user uploaded documents) */}
+                    {!doc.isPreseeded ? (
+                      <button
+                        onClick={() => handleDeleteDoc(doc.id, doc.title)}
+                        className="text-slate-600 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                        title="Remove from knowledge base"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-[8px] font-mono tracking-widest text-emerald-500 bg-emerald-500/10 py-0.5 px-1 rounded scale-90 shrink-0 select-none">
+                        SYSTEM
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* Footer Meta */}
+      <div className="p-4 border-t border-emerald-900/20 bg-bg-insight/60 text-[10px] text-slate-500 flex items-center space-x-2">
+        <Clock className="w-3.5 h-3.5 text-slate-500" />
+        <span>Local Session Connected</span>
+      </div>
+    </div>
+  );
+}

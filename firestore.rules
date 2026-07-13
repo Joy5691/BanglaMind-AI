@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+    
+    // Validation Blueprint for ChatSession
+    function isValidChatSession(data) {
+      return data.keys().hasAll(['userId', 'title', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 200
+        && (!('messages' in data) || (data.messages is list && data.messages.size() <= 1000))
+        && (!('isShared' in data) || (data.isShared is bool));
+    }
+
+    match /chatSessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (
+        (isSignedIn() && existing().userId == request.auth.uid) ||
+        (existing().isShared == true)
+      );
+      
+      allow delete: if isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid;
+      
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() 
+        && isValidId(sessionId) 
+        && isValidChatSession(incoming()) 
+        && incoming().keys().hasOnly(['userId', 'title', 'messages', 'createdAt', 'updatedAt', 'isShared'])
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+        
+      allow update: if isSignedIn()
+        && isValidId(sessionId)
+        && existing().userId == request.auth.uid
+        && isValidChatSession(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'messages', 'updatedAt', 'isShared'])
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt
+        && incoming().userId == existing().userId;
+    }
+  }
+}

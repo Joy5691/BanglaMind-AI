@@ -1,0 +1,6 @@
+{
+  "name": "BanglaMind AI",
+  "description": "A Bangladesh-centric multilingual AI assistant using RAG, Bangla NLP, and performance analytics.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
