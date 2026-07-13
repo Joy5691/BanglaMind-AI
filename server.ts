@@ -7,7 +7,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -244,12 +244,6 @@ const preseededDocuments = [
     title: "DAE Maize Pest Fall Armyworm Identification & Control Protocols",
     type: "txt",
     content: "The Department of Agricultural Extension (dae.gov.bd) issues regional protocols for managing Fall Armyworm (Spodoptera frugiperda) infestations in maize, wheat, and sorghum crops. The pest is identified by an inverted 'Y' mark on the head of dark green caterpillars and four raised spots forming a square on the eighth abdominal segment. Farmers are advised to perform daily morning crop scouting, deploy pheromone traps (15 traps per hectare), and utilize organic bio-pesticides like Spinosad or Bacillus thuringiensis if infestation exceeds 5% of young whorls. Avoid consecutive chemical sprays to prevent insect immunity."
-  },
-  {
-    id: "brta-driving-license",
-    title: "BRTA Driving License and Digital Registration Steps",
-    type: "pdf",
-    content: "To obtain a driving license in Bangladesh, applicants must first apply for a Learner's Driving License via the BRTA Service Portal (bsp.brta.gov.bd). Requirements for a learner's license include: a verified NID copy, a medical certificate by a registered doctor, and proof of address. After 2 to 3 months of training, the applicant must pass the written, oral, and practical driving tests at the BRTA circle. Upon passing, they apply for the Smart Card Driving License by paying the fee (e.g., 2542 BDT for non-professional, 1680 BDT for professional) via mobile banking. The digital smart card is delivered by post. For tracking, citizens can use the DL checker app."
   }
 ];
 
@@ -521,7 +515,7 @@ INSTRUCTIONS FOR RETRIEVAL-AUGMENTED GENERATION (RAG):
 3. Cite sources directly in your response using inline tags like [Source: Name of Document] or [Source: Document Title].
 4. If the information is NOT present in the retrieved context, you may use your pre-trained knowledge about Bangladesh, but you MUST add a clear note: "(Note: This information is retrieved from base knowledge and is not verified in active documents)."
 5. HALLUCINATION REDUCTION RULE: If the confidence score of the facts is extremely low, or if the user asks for something outside of verified documents and base information that you cannot guarantee, say "I couldn't verify this information. Please refer to official Bangladesh Government services or respective verified institutions."
-6. QUALITY & STRUCTURE RULE: Ensure your response is highly professional and extremely well-structured. Use clean Markdown formatting heavily, including bold text, bullet points for lists, Markdown tables for fee schedules or comparisons, and step-by-step numbered instructions for citizen advice/procedures based on active retrieval sources.
+6. Ensure your response is friendly, professional, structured with bullet points where appropriate, and formatted in clean Markdown.
 7. Respond in the same language code used by the user: if they ask in Bangla, answer in Bangla. If English, answer in English. If code-mixed Banglish, you may respond in simple, polite Bangla or Banglish as preferred.`;
 
   let responseText = "";
@@ -864,15 +858,7 @@ app.get("/api/stats", (req, res) => {
     embeddingQuality,
     hallucinationRate,
     totalQuestions,
-    documentCount: filteredDocs.length,
-    history: queryLogs.map((log, index) => ({
-      query: `Q${index + 1}`,
-      avgLatency: log.latency,
-      tokens: log.tokens,
-      precision: Math.min(99, Math.max(65, Math.round(75 + (log.similarity / 5)))),
-      similarity: log.similarity,
-      accuracyScore: Math.min(98, Math.max(70, Math.round(85 + (log.similarity / 10))))
-    }))
+    documentCount: filteredDocs.length
   });
 });
 
