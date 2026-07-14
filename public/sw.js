@@ -1,4 +1,4 @@
-const CACHE_NAME = 'banglamind-v2';
+const CACHE_NAME = 'banglamind-v3'; // bump this string on every future deploy
 const ASSETS = [
   '/',
   '/index.html',
@@ -32,8 +32,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Check if it is a GET request to prevent issues with POST requests
   if (event.request.method !== 'GET') return;
+
+  // HTML navigations: always try the network first so users get the
+  // latest index.html (and therefore the latest hashed JS/CSS bundle
+  // references) instead of a stale cached shell after a redeploy.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -41,7 +50,6 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
       return fetch(event.request).then((response) => {
-        // Cache new static assets dynamically if appropriate
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -50,7 +58,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Fallback for offline if network fails and not in cache
+        // Offline fallback intentionally omitted
       });
     })
   );
