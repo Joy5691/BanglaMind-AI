@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "ChatSession": {
+      "title": "Chat Session",
+      "description": "A conversation history thread.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who owns this session.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the chat session.",
+          "maxLength": 200
+        },
+        "messages": {
+          "type": "array",
+          "description": "The messages in the chat session."
+        },
+        "createdAt": {
+          "type": "object",
+          "description": "Creation timestamp."
+        },
+        "updatedAt": {
+          "type": "object",
+          "description": "Last update timestamp."
+        }
+      },
+      "required": ["userId", "title", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "chatSessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Stores user chat sessions."
+    }
+  }
+}

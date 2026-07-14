@@ -1,0 +1,10 @@
+{
+  "projectId": "banglamind-ai",
+  "appId": "1:131636454915:web:ff0b3f2fedb5ebf2a79036",
+  "apiKey": "AIzaSyAd1Z5dPtCVj1w9PnE3FoO52Lwlz5JgyJc",
+  "authDomain": "banglamind-ai.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "banglamind-ai.firebasestorage.app",
+  "messagingSenderId": "131636454915",
+  "measurementId": "G-1CPD3Q9WHG"
+}
