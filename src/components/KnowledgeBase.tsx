@@ -116,20 +116,6 @@ export default function KnowledgeBase({ onSelectQuery }: KnowledgeBaseProps) {
       description: "Identity verification with NID/Birth certificate, scheduled SMS center alerts, and QR passport download.",
       promptText: "How do I register on the Surokkha vaccination portal (surokkha.gov.bd) and download a QR-verified official Vaccine Certificate?",
       badge: "Vaccines Portal"
-    },
-    {
-      category: "CITIZEN",
-      title: "BRTA Driving License Registration",
-      description: "Steps for learner's and smart card driving license registration via BSP (BRTA Service Portal).",
-      promptText: "What are the steps to apply for a BRTA smart card driving license? Include details about the learner's license, required medical certificate, and the digital registration process on BSP.",
-      badge: "BRTA Services"
-    },
-    {
-      category: "EDUCATION",
-      title: "Primary Education Curriculum Guidelines",
-      description: "NCTB primary and secondary educational frameworks and national textbook distribution.",
-      promptText: "How does the NCTB structure primary and secondary education curriculum in Bangladesh, and what is the process for the national free textbook distribution?",
-      badge: "NCTB Framework"
     }
   ];
 

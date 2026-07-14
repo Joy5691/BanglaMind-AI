@@ -523,7 +523,7 @@ export default function ChatArea({
                 className="w-16 h-16 rounded-2xl bg-[#0a110d] border border-emerald-900/30 flex items-center justify-center mx-auto glow-emerald-glow overflow-hidden cursor-pointer"
               >
                 <TransparentMapLogo 
-                  src="/bd_log_2.png" 
+                  src="/2.png" 
                   removeColor="black" 
                   alt="BanglaMind AI Logo" 
                   className="w-12 h-12" 

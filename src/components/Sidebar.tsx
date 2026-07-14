@@ -22,9 +22,6 @@ import {
   Clock, 
   AlertCircle,
   MessageSquare,
-  BookOpen,
-  LineChart,
-  Database,
   X
 } from "lucide-react";
 
@@ -49,8 +46,6 @@ interface SidebarProps {
   width?: number;
   collapsed?: boolean;
   onClose?: () => void;
-  activeTab?: string;
-  setActiveTab?: (tab: string) => void;
 }
 
 export default function Sidebar({
@@ -73,9 +68,7 @@ export default function Sidebar({
   onDeleteSession,
   width = 320,
   collapsed = false,
-  onClose,
-  activeTab,
-  setActiveTab
+  onClose
 }: SidebarProps) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -250,7 +243,7 @@ export default function Sidebar({
       <div className="p-5 border-b border-emerald-900/20 bg-bg-base/40 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <TransparentMapLogo 
-            src="/bd_log_2.png" 
+            src="/2.png" 
             removeColor="black" 
             className="w-8 h-8" 
             glowColor="rgba(16, 185, 129, 0.4)" 
@@ -276,78 +269,6 @@ export default function Sidebar({
 
       {/* Main sidebar contents scroll container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
-        {/* Portal Navigation Menu (Shown on mobile as a unified menu) */}
-        {isMobile && activeTab && setActiveTab && (
-          <div className="space-y-2 border-b border-emerald-900/15 pb-5">
-            <h2 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-3 px-1">Navigation Menu</h2>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  setActiveTab("CHAT");
-                  if (onClose) onClose();
-                }}
-                className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                  activeTab === "CHAT"
-                    ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
-                    : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-                }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Chat Desk</span>
-              </button>
-
-              {isAdmin && (
-                <>
-                  <button
-                    onClick={() => {
-                      setActiveTab("KNOWLEDGE");
-                      if (onClose) onClose();
-                    }}
-                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      activeTab === "KNOWLEDGE"
-                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
-                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-                    }`}
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>Lib Base</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab("DASHBOARD");
-                      if (onClose) onClose();
-                    }}
-                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      activeTab === "DASHBOARD"
-                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
-                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-                    }`}
-                  >
-                    <LineChart className="w-3.5 h-3.5" />
-                    <span>Metrics</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveTab("ADMIN");
-                      if (onClose) onClose();
-                    }}
-                    className={`flex items-center space-x-2 p-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      activeTab === "ADMIN"
-                        ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
-                        : "bg-[#050807]/30 border-emerald-900/10 text-slate-400 hover:text-slate-200 hover:bg-emerald-900/5"
-                    }`}
-                  >
-                    <Database className="w-3.5 h-3.5" />
-                    <span>Console</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
         
         {/* Assistant Modes Section */}
         <div>

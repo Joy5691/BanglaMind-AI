@@ -59,38 +59,21 @@ export default function ResearchDashboard({ stats, addLogMessage, documents, isE
     }
   };
 
-  // Dynamic historical data plotted in real-time
-  const getHistoricalData = () => {
-    const baseMock = [
-      { query: "Baseline Q1", avgLatency: 740, tokens: 420, precision: 88, similarity: 82, accuracyScore: 85 },
-      { query: "Baseline Q2", avgLatency: 890, tokens: 590, precision: 92, similarity: 86, accuracyScore: 88 },
-      { query: "Baseline Q3", avgLatency: 620, tokens: 380, precision: 76, similarity: 79, accuracyScore: 78 },
-      { query: "Baseline Q4", avgLatency: 1100, tokens: 940, precision: 96, similarity: 91, accuracyScore: 92 },
-    ];
-    
-    if (liveStats.history && liveStats.history.length > 0) {
-      if (liveStats.history.length >= 4) {
-        return liveStats.history;
-      } else {
-        const slicedMock = baseMock.slice(0, 4 - liveStats.history.length);
-        return [...slicedMock, ...liveStats.history];
-      }
+  // Pre-seed some mock historical datapoints for the chart
+  const historicalData = [
+    { query: "Q1", avgLatency: 740, tokens: 420, precision: 88, similarity: 82, accuracyScore: 85 },
+    { query: "Q2", avgLatency: 890, tokens: 590, precision: 92, similarity: 86, accuracyScore: 88 },
+    { query: "Q3", avgLatency: 620, tokens: 380, precision: 76, similarity: 79, accuracyScore: 78 },
+    { query: "Q4", avgLatency: 1100, tokens: 940, precision: 96, similarity: 91, accuracyScore: 92 },
+    { 
+      query: "Q5", 
+      avgLatency: liveStats.avgLatency, 
+      tokens: liveStats.totalTokens > 0 ? Math.ceil(liveStats.totalTokens / liveStats.totalQuestions) : 480, 
+      precision: liveStats.retrievalPrecision, 
+      similarity: liveStats.embeddingQuality,
+      accuracyScore: liveStats.accuracyScore 
     }
-    
-    return [
-      ...baseMock,
-      { 
-        query: "Aggregate Avg", 
-        avgLatency: liveStats.avgLatency || 850, 
-        tokens: liveStats.totalTokens > 0 && liveStats.totalQuestions > 0 ? Math.ceil(liveStats.totalTokens / liveStats.totalQuestions) : 480, 
-        precision: liveStats.retrievalPrecision || 90, 
-        similarity: liveStats.embeddingQuality || 88,
-        accuracyScore: liveStats.accuracyScore || 92 
-      }
-    ];
-  };
-
-  const historicalData = getHistoricalData();
+  ];
 
   // Simulated Academic NLP Metrics based on real system performance
   const bleuScore = Math.max(65, Math.round(liveStats.accuracyScore - 8));

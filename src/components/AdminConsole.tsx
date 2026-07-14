@@ -480,34 +480,9 @@ export default function AdminConsole({ logs, onAddLog, documentCount, stats, doc
                       className="hover:bg-emerald-950/20 transition-colors cursor-pointer group"
                       title="Click to preview this user's active chats and telemetry"
                     >
-                      <td className="p-3 font-semibold text-slate-200 flex items-center flex-wrap gap-1.5 sm:gap-2">
-                        <Users className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors shrink-0" />
-                        <span className="truncate flex-1 min-w-[80px] max-w-[120px] sm:max-w-[200px]" title={user.userId}>{user.userId}</span>
-                        
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {/* Role Badge */}
-                          {user.userId === "kmjoy569@gmail.com" || user.userId.includes("admin") ? (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[8px] font-bold uppercase shadow-sm">
-                              ADMIN
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[8px] font-bold uppercase shadow-sm">
-                              USER
-                            </span>
-                          )}
-
-                          {/* Presence Badge */}
-                          {Date.now() - new Date(user.lastActive).getTime() < 300000 ? (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[8px] font-bold animate-pulse flex items-center gap-1 shadow-sm">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                              ACTIVE
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300 border border-slate-500/30 text-[8px] font-bold shadow-sm">
-                              AWAY
-                            </span>
-                          )}
-                        </div>
+                      <td className="p-3 font-semibold text-slate-200 flex items-center space-x-2">
+                        <Users className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                        <span className="truncate max-w-[150px]">{user.userId}</span>
                       </td>
                       <td className="p-3 text-center text-emerald-400 font-bold">
                         {user.queriesCount}

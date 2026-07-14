@@ -4,13 +4,13 @@
   "description": "Intelligent Search & Research Assistant for Bangladesh",
   "icons": [
     {
-      "src": "/bd_log_1.png",
+      "src": "/1.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/bd_log_2.png",
+      "src": "/2.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"

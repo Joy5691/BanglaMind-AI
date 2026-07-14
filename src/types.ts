@@ -60,14 +60,6 @@ export interface PerformanceStats {
   hallucinationRate: number;
   totalQuestions: number;
   documentCount: number;
-  history?: Array<{
-    query: string;
-    avgLatency: number;
-    tokens: number;
-    precision: number;
-    similarity: number;
-    accuracyScore: number;
-  }>;
 }
 
 export interface SystemLog {

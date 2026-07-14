@@ -310,8 +310,15 @@ export default function App() {
   const handleLogin = async () => {
     try {
       await loginWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Login failed: Unauthorized domain.\n\nTo fix this in your deployed app:\n1. Go to Firebase Console\n2. Select Authentication -> Settings -> Authorized Domains\n3. Add this app's URL to the list.");
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("Login failed: Popup blocked by your browser. Please allow popups for this site and try again.");
+      } else {
+        alert("Login failed: " + (error.message || "Unknown error occurred."));
+      }
     }
   };
 
@@ -483,7 +490,7 @@ export default function App() {
               className="w-20 h-20 rounded-2xl bg-[#0a110d] border border-emerald-900/30 flex items-center justify-center glow-emerald-glow mb-6 overflow-hidden shadow-2xl cursor-pointer"
             >
               <TransparentMapLogo 
-                src="/bd_log_2.png" 
+                src="/2.png" 
                 removeColor="black" 
                 alt="BanglaMind AI Dark Logo" 
                 className="w-14 h-14" 
@@ -510,7 +517,7 @@ export default function App() {
               <span>Continue with Google</span>
             </button>
 
-            {/* Showcase Card with White Background using bd_log_1.png */}
+            {/* Showcase Card with White Background using 1.png */}
             <motion.div 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -519,7 +526,7 @@ export default function App() {
             >
               <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 overflow-hidden shadow-inner">
                 <TransparentMapLogo 
-                  src="/bd_log_1.png" 
+                  src="/1.png" 
                   removeColor="white" 
                   alt="BanglaMind AI Light Logo" 
                   className="w-10 h-10" 
@@ -537,9 +544,9 @@ export default function App() {
         </div>
       ) : (
         <>
-          {/* Top Universal Navbar - Single-row flex always */}
-          <header className="px-4 py-2.5 border-b border-emerald-900/20 bg-bg-base/80 backdrop-blur-md flex flex-row items-center justify-between shrink-0 gap-3 z-10 relative shadow-md">
-            <div className="flex items-center space-x-3">
+          {/* Top Universal Navbar */}
+          <header className="px-6 py-3 border-b border-emerald-900/20 bg-bg-base/80 backdrop-blur-md flex flex-col md:flex-row items-center justify-between shrink-0 gap-3 z-10 relative shadow-md">
+            <div className="flex items-center space-x-3.5 w-full md:w-auto justify-between md:justify-start">
               <div className="flex items-center space-x-3">
                 {user && (
                   <button
@@ -558,7 +565,7 @@ export default function App() {
                   className="w-9 h-9 rounded-xl bg-[#0a110d] border border-emerald-900/30 flex items-center justify-center glow-emerald-glow shadow-lg shadow-emerald-500/20 overflow-hidden cursor-pointer"
                 >
                   <TransparentMapLogo 
-                    src="/bd_log_2.png" 
+                    src="/2.png" 
                     removeColor="black" 
                     alt="BanglaMind AI Logo" 
                     className="w-7 h-7" 
@@ -576,14 +583,14 @@ export default function App() {
                       </span>
                     )}
                   </h1>
-                  <p className="hidden sm:block text-[10px] text-slate-400 font-mono leading-none mt-1">Intelligent Search & Research Assistant</p>
+                  <p className="text-[10px] text-slate-400 font-mono leading-none mt-1">Intelligent Search & Research Assistant</p>
                 </div>
               </div>
             </div>
 
-            {/* Modular Navigation Tabs with glass styles - Hidden on mobile, shown on desktop */}
+            {/* Modular Navigation Tabs with glass styles - Hidden or locked for guests in Shared mode */}
             {user && (
-              <nav className="hidden md:flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner">
+              <nav className="flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner">
                 <button
                   onClick={() => setActiveTab("CHAT")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
@@ -663,7 +670,7 @@ export default function App() {
                         setIsAdmin(!isAdmin);
                         appendSystemLog("info", `Security Overrides: Switched session role to ${!isAdmin ? "ADMINISTRATOR" : "STANDARD_USER"}.`);
                       }}
-                      className={`hidden sm:flex text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer items-center space-x-1.5 ${
+                      className={`text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer flex items-center space-x-1.5 ${
                         isAdmin 
                           ? "bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
                           : "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.5)]"
@@ -695,9 +702,13 @@ export default function App() {
           </header>
 
           {/* Main viewport area matching current tab */}
-          <main className="flex-1 overflow-hidden relative flex flex-row">
-            {user && (
-              <>
+          <main className="flex-1 overflow-hidden relative">
+            {activeTab === "CHAT" && (
+              <div 
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                className="flex h-full w-full overflow-hidden relative"
+              >
                 {/* Mobile sidebar dark backdrop overlay when expanded */}
                 {!sidebarCollapsed && (
                   <div 
@@ -709,10 +720,7 @@ export default function App() {
                 {/* Sidebar with upload handles */}
                 <Sidebar
                   currentMode={currentMode}
-                  setMode={(mode) => {
-                    setActiveTab("CHAT");
-                    setCurrentMode(mode);
-                  }}
+                  setMode={setCurrentMode}
                   documents={documents}
                   selectedDocIds={selectedDocIds}
                   toggleDocSelection={handleToggleDoc}
@@ -731,15 +739,13 @@ export default function App() {
                   width={sidebarWidth}
                   collapsed={sidebarCollapsed}
                   onClose={() => setSidebarCollapsed(true)}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
                 />
                 
                 {/* Resizer Handle */}
                 {!sidebarCollapsed && (
                   <div
                     onMouseDown={startResizing}
-                    className={`hidden md:block w-[4px] hover:w-[6px] h-full cursor-col-resize bg-emerald-950/20 hover:bg-emerald-500/40 transition-all relative group shrink-0 z-20 ${isResizing ? 'bg-emerald-500/60 w-[6px]' : ''}`}
+                    className={`w-[4px] hover:w-[6px] h-full cursor-col-resize bg-emerald-950/20 hover:bg-emerald-500/40 transition-all relative group shrink-0 z-20 ${isResizing ? 'bg-emerald-500/60 w-[6px]' : ''}`}
                   >
                     {/* Floating collapse button */}
                     <button
@@ -754,16 +760,8 @@ export default function App() {
                     </button>
                   </div>
                 )}
-              </>
-            )}
 
-            {/* Viewport frame containing active tabs */}
-            <div 
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              className="flex-1 h-full overflow-hidden relative"
-            >
-              {activeTab === "CHAT" && (
+                {/* Conversations frame */}
                 <ChatArea
                   mode={currentMode}
                   messages={messages}
@@ -779,151 +777,151 @@ export default function App() {
                   onRateMessage={handleRateMessage}
                   isAdmin={isAdmin}
                 />
-              )}
 
-              {activeTab === "KNOWLEDGE" && isAdmin && (
-                <KnowledgeBase onSelectQuery={handleSelectQueryFromKB} />
-              )}
-
-              {activeTab === "DASHBOARD" && isAdmin && (
-                <ResearchDashboard stats={stats} addLogMessage={appendSystemLog} documents={documents} />
-              )}
-
-              {activeTab === "ADMIN" && isAdmin && (
-                <AdminConsole 
-                  logs={systemLogs} 
-                  onAddLog={appendSystemLog} 
-                  documentCount={documents.length} 
-                  stats={stats}
-                  documents={documents}
-                />
-              )}
-
-              {/* Floating expand button */}
-              {user && sidebarCollapsed && (
-                <button
-                  onClick={() => setSidebarCollapsed(false)}
-                  className="absolute left-4 top-4 z-40 p-2 rounded-lg border border-emerald-900/35 bg-[#0a110d]/90 backdrop-blur text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/20 shadow-md transition-all flex items-center justify-center cursor-pointer"
-                  title="Expand Sidebar"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* Floating Action Button for mobile-friendly document toggling (Admin / Authorized only) */}
-              {user && isAdmin && (activeTab === "CHAT" || activeTab === "KNOWLEDGE") && (
-                <button
-                  onClick={() => setIsMobileDocsOpen(true)}
-                  className="md:hidden fixed bottom-24 right-4 z-40 flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full shadow-lg shadow-emerald-950/40 active:scale-95 transition-all cursor-pointer border border-emerald-500/20"
-                  title="Active Sources Toggle"
-                >
-                  <Database className="w-3.5 h-3.5 animate-pulse" />
-                  <span>Sources ({selectedDocIds.length})</span>
-                </button>
-              )}
-
-              {/* Mobile Document Selector Bottom Sheet Drawer */}
-              {isMobileDocsOpen && (
-                <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
-                  {/* Backdrop */}
-                  <div 
-                    onClick={() => setIsMobileDocsOpen(false)}
-                    className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-                  ></div>
-                  
-                  {/* Sliding Bottom Sheet */}
-                  <motion.div 
-                    initial={{ y: "100%" }}
-                    animate={{ y: 0 }}
-                    exit={{ y: "100%" }}
-                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="relative w-full max-h-[80vh] bg-[#070c09] border-t border-emerald-900/40 rounded-t-2xl p-5 flex flex-col shadow-2xl overflow-hidden z-10"
+                {/* Floating expand button */}
+                {sidebarCollapsed && (
+                  <button
+                    onClick={() => setSidebarCollapsed(false)}
+                    className="absolute left-4 top-4 z-40 p-2 rounded-lg border border-emerald-900/35 bg-[#0a110d]/90 backdrop-blur text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/20 shadow-md transition-all flex items-center justify-center cursor-pointer"
+                    title="Expand Sidebar"
                   >
-                    {/* Swipe handle decoration */}
-                    <div className="w-12 h-1.5 bg-emerald-950/60 rounded-full mx-auto mb-4 shrink-0"></div>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Floating Action Button for mobile-friendly document toggling (Admin / Authorized only) */}
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsMobileDocsOpen(true)}
+                    className="md:hidden fixed bottom-24 right-4 z-40 flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full shadow-lg shadow-emerald-950/40 active:scale-95 transition-all cursor-pointer border border-emerald-500/20"
+                    title="Active Sources Toggle"
+                  >
+                    <Database className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Sources ({selectedDocIds.length})</span>
+                  </button>
+                )}
+
+                {/* Mobile Document Selector Bottom Sheet Drawer */}
+                {isMobileDocsOpen && (
+                  <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+                    {/* Backdrop */}
+                    <div 
+                      onClick={() => setIsMobileDocsOpen(false)}
+                      className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+                    ></div>
                     
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-display font-bold text-sm text-emerald-50">Active Retrieval Sources</h3>
-                        <p className="text-[10px] text-slate-500">Toggle documents to customize RAG synthesis scope</p>
-                      </div>
-                      <button 
-                        onClick={() => setIsMobileDocsOpen(false)}
-                        className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 cursor-pointer border border-emerald-900/30 bg-[#0a110d] px-2.5 py-1 rounded-lg"
-                      >
-                        Close
-                      </button>
-                    </div>
-                    
-                    {/* Document Checklist Scroll Container */}
-                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-4">
-                      {documents.length === 0 ? (
-                        <div className="text-center py-8 text-xs text-slate-500">
-                          No documents indexed yet.
+                    {/* Sliding Bottom Sheet */}
+                    <motion.div 
+                      initial={{ y: "100%" }}
+                      animate={{ y: 0 }}
+                      exit={{ y: "100%" }}
+                      transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                      className="relative w-full max-h-[80vh] bg-[#070c09] border-t border-emerald-900/40 rounded-t-2xl p-5 flex flex-col shadow-2xl overflow-hidden z-10"
+                    >
+                      {/* Swipe handle decoration */}
+                      <div className="w-12 h-1.5 bg-emerald-950/60 rounded-full mx-auto mb-4 shrink-0"></div>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-display font-bold text-sm text-emerald-50">Active Retrieval Sources</h3>
+                          <p className="text-[10px] text-slate-500">Toggle documents to customize RAG synthesis scope</p>
                         </div>
-                      ) : (
-                        documents.map((doc) => {
-                          const isSelected = selectedDocIds.includes(doc.id);
-                          return (
-                            <div 
-                              key={doc.id}
-                              onClick={() => handleToggleDoc(doc.id)}
-                              className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                                isSelected 
-                                  ? "border-emerald-500/30 bg-emerald-900/10 text-emerald-400" 
-                                  : "border-emerald-900/15 bg-bg-base/40 text-slate-300"
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3 overflow-hidden flex-1">
-                                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                        <button 
+                          onClick={() => setIsMobileDocsOpen(false)}
+                          className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 cursor-pointer border border-emerald-900/30 bg-[#0a110d] px-2.5 py-1 rounded-lg"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      
+                      {/* Document Checklist Scroll Container */}
+                      <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-4">
+                        {documents.length === 0 ? (
+                          <div className="text-center py-8 text-xs text-slate-500">
+                            No documents indexed yet.
+                          </div>
+                        ) : (
+                          documents.map((doc) => {
+                            const isSelected = selectedDocIds.includes(doc.id);
+                            return (
+                              <div 
+                                key={doc.id}
+                                onClick={() => handleToggleDoc(doc.id)}
+                                className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                                   isSelected 
-                                    ? "border-emerald-500 bg-emerald-500 text-slate-950" 
-                                    : "border-emerald-900/30"
-                                }`}>
-                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                                </div>
-                                <div className="overflow-hidden leading-tight">
-                                  <div className="font-semibold text-xs truncate">{doc.title}</div>
-                                  <div className="flex items-center space-x-2 mt-1 text-[9px] text-slate-500 font-mono">
-                                    <span className="uppercase text-emerald-500 font-bold">{doc.type}</span>
-                                    <span>•</span>
-                                    <span>{doc.size}</span>
-                                    <span>•</span>
-                                    <span>{doc.wordCount} w</span>
+                                    ? "border-emerald-500/30 bg-emerald-900/10 text-emerald-400" 
+                                    : "border-emerald-900/15 bg-bg-base/40 text-slate-300"
+                                }`}
+                              >
+                                <div className="flex items-center space-x-3 overflow-hidden flex-1">
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                    isSelected 
+                                      ? "border-emerald-500 bg-emerald-500 text-slate-950" 
+                                      : "border-emerald-900/30"
+                                  }`}>
+                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                  </div>
+                                  <div className="overflow-hidden leading-tight">
+                                    <div className="font-semibold text-xs truncate">{doc.title}</div>
+                                    <div className="flex items-center space-x-2 mt-1 text-[9px] text-slate-500 font-mono">
+                                      <span className="uppercase text-emerald-500 font-bold">{doc.type}</span>
+                                      <span>•</span>
+                                      <span>{doc.size}</span>
+                                      <span>•</span>
+                                      <span>{doc.wordCount} w</span>
+                                    </div>
                                   </div>
                                 </div>
+                                {doc.isPreseeded && (
+                                  <span className="text-[8px] font-mono tracking-wider text-emerald-500 bg-emerald-500/10 py-0.5 px-1.5 rounded shrink-0">
+                                    SYSTEM
+                                  </span>
+                                )}
                               </div>
-                              {doc.isPreseeded && (
-                                <span className="text-[8px] font-mono tracking-wider text-emerald-500 bg-emerald-500/10 py-0.5 px-1.5 rounded shrink-0">
-                                  SYSTEM
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                    
-                    {/* Action footer */}
-                    <div className="flex items-center justify-between pt-3 border-t border-emerald-900/20 text-[10px] text-slate-500 font-mono">
-                      <span>{selectedDocIds.length} of {documents.length} Selected</span>
-                      <button 
-                        onClick={() => {
-                          if (selectedDocIds.length === documents.length) {
-                            setSelectedDocIds([]);
-                          } else {
-                            setSelectedDocIds(documents.map(d => d.id));
-                          }
-                        }}
-                        className="text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer font-semibold"
-                      >
-                        {selectedDocIds.length === documents.length ? "Deselect All" : "Select All"}
-                      </button>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      
+                      {/* Action footer */}
+                      <div className="flex items-center justify-between pt-3 border-t border-emerald-900/20 text-[10px] text-slate-500 font-mono">
+                        <span>{selectedDocIds.length} of {documents.length} Selected</span>
+                        <button 
+                          onClick={() => {
+                            if (selectedDocIds.length === documents.length) {
+                              setSelectedDocIds([]);
+                            } else {
+                              setSelectedDocIds(documents.map(d => d.id));
+                            }
+                          }}
+                          className="text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer font-semibold"
+                        >
+                          {selectedDocIds.length === documents.length ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "KNOWLEDGE" && isAdmin && (
+              <KnowledgeBase onSelectQuery={handleSelectQueryFromKB} />
+            )}
+
+            {activeTab === "DASHBOARD" && isAdmin && (
+              <ResearchDashboard stats={stats} addLogMessage={appendSystemLog} documents={documents} />
+            )}
+
+            {activeTab === "ADMIN" && isAdmin && (
+              <AdminConsole 
+                logs={systemLogs} 
+                onAddLog={appendSystemLog} 
+                documentCount={documents.length} 
+                stats={stats}
+                documents={documents}
+              />
+            )}
           </main>
         </>
       )}

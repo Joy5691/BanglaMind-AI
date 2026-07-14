@@ -1,9 +1,9 @@
-const CACHE_NAME = 'banglamind-v1';
+const CACHE_NAME = 'banglamind-v2';
 const ASSETS = [
   '/',
   '/index.html',
-  '/bd_log_1.png',
-  '/bd_log_2.png',
+  '/1.png',
+  '/2.png',
   '/manifest.json'
 ];
 
