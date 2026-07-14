@@ -32,6 +32,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Check if it is a GET request to prevent issues with POST requests
   if (event.request.method !== 'GET') return;
 
   // HTML navigations: always try the network first so users get the
@@ -50,6 +51,7 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
       return fetch(event.request).then((response) => {
+        // Cache new static assets dynamically if appropriate
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -58,7 +60,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Offline fallback intentionally omitted
+        // Fallback for offline if network fails and not in cache
       });
     })
   );
