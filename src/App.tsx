@@ -640,116 +640,119 @@ export default function App() {
               </div>
             </div>
 
-            {/* Modular Navigation Tabs with glass styles - Hidden or locked for guests in Shared mode */}
-            {user && (
-              <nav className="flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner">
-                <button
-                  onClick={() => setActiveTab("CHAT")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-                    activeTab === "CHAT" 
-                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
-                      : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Chat</span>
-                </button>
-                
-                {isAdmin && (
+            {/* Nav tabs + user actions grouped into one row so they never split onto separate lines on mobile */}
+            <div className="flex items-center justify-between w-full md:w-auto gap-3">
+              {/* Modular Navigation Tabs with glass styles - Hidden or locked for guests in Shared mode */}
+              {user && (
+                <nav className="flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner">
+                  <button
+                    onClick={() => setActiveTab("CHAT")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                      activeTab === "CHAT" 
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
+                        : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Chat</span>
+                  </button>
+                  
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => setActiveTab("KNOWLEDGE")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                          activeTab === "KNOWLEDGE" 
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
+                        }`}
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Knowledge Base</span>
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab("DASHBOARD")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                          activeTab === "DASHBOARD" 
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
+                        }`}
+                      >
+                        <LineChart className="w-3.5 h-3.5" />
+                        <span>Dashboard</span>
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab("ADMIN")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                          activeTab === "ADMIN" 
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
+                        }`}
+                      >
+                        <Database className="w-3.5 h-3.5" />
+                        <span>Admin Console</span>
+                      </button>
+                    </>
+                  )}
+                </nav>
+              )}
+
+              <div className="flex items-center space-x-3">
+                {user ? (
                   <>
-                    <button
-                      onClick={() => setActiveTab("KNOWLEDGE")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-                        activeTab === "KNOWLEDGE" 
-                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
-                          : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
-                      }`}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Knowledge Base</span>
-                    </button>
+                    <div className="hidden sm:flex items-center space-x-2 bg-[#050807] py-1.5 px-3 rounded-full border border-emerald-900/20">
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt="Profile" className="w-5 h-5 rounded-full" />
+                      ) : (
+                        <UserIcon className="w-4 h-4 text-emerald-500" />
+                      )}
+                      <span className="text-[11px] font-medium text-slate-300 truncate max-w-[100px]">{user.displayName || user.email}</span>
+                      {isActualAdminUser && (
+                        <span className="text-[8px] tracking-wider font-mono font-bold px-1.5 py-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 border border-emerald-400/20 text-white rounded flex items-center gap-0.5 shadow-[0_0_8px_rgba(16,185,129,0.3)] select-none">
+                          <Shield className="w-2.5 h-2.5 fill-white text-emerald-300 shrink-0" />
+                          ROOT ADMIN
+                        </span>
+                      )}
+                    </div>
 
-                    <button
-                      onClick={() => setActiveTab("DASHBOARD")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-                        activeTab === "DASHBOARD" 
-                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
-                          : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
-                      }`}
-                    >
-                      <LineChart className="w-3.5 h-3.5" />
-                      <span>Dashboard</span>
-                    </button>
+                    {/* Dynamic simulated admin privilege switch for testing and preview */}
+                    {isActualAdminUser && (
+                      <button 
+                        onClick={() => {
+                          setIsAdmin(!isAdmin);
+                          appendSystemLog("info", `Security Overrides: Switched session role to ${!isAdmin ? "ADMINISTRATOR" : "STANDARD_USER"}.`);
+                        }}
+                        className={`text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer flex items-center space-x-1.5 ${
+                          isAdmin 
+                            ? "bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
+                            : "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.5)]"
+                        }`}
+                        title="Developer Override: Switch between Administrator View and User Preview mode"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping shrink-0"></span>
+                        <span>ROLE: {isAdmin ? "ADMIN ACTIVE" : "PREVIEW GUEST USER"}</span>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => setActiveTab("ADMIN")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
-                        activeTab === "ADMIN" 
-                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
-                          : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
-                      }`}
+                    <button 
+                      onClick={logout}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                      title="Logout"
                     >
-                      <Database className="w-3.5 h-3.5" />
-                      <span>Admin Console</span>
+                      <LogOut className="w-4 h-4" />
                     </button>
                   </>
-                )}
-              </nav>
-            )}
-
-            <div className="flex items-center space-x-3">
-              {user ? (
-                <>
-                  <div className="hidden sm:flex items-center space-x-2 bg-[#050807] py-1.5 px-3 rounded-full border border-emerald-900/20">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="Profile" className="w-5 h-5 rounded-full" />
-                    ) : (
-                      <UserIcon className="w-4 h-4 text-emerald-500" />
-                    )}
-                    <span className="text-[11px] font-medium text-slate-300 truncate max-w-[100px]">{user.displayName || user.email}</span>
-                    {isActualAdminUser && (
-                      <span className="text-[8px] tracking-wider font-mono font-bold px-1.5 py-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 border border-emerald-400/20 text-white rounded flex items-center gap-0.5 shadow-[0_0_8px_rgba(16,185,129,0.3)] select-none">
-                        <Shield className="w-2.5 h-2.5 fill-white text-emerald-300 shrink-0" />
-                        ROOT ADMIN
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Dynamic simulated admin privilege switch for testing and preview */}
-                  {isActualAdminUser && (
-                    <button 
-                      onClick={() => {
-                        setIsAdmin(!isAdmin);
-                        appendSystemLog("info", `Security Overrides: Switched session role to ${!isAdmin ? "ADMINISTRATOR" : "STANDARD_USER"}.`);
-                      }}
-                      className={`text-[10px] font-mono font-bold px-3 py-1.5 rounded-full border transition-all cursor-pointer flex items-center space-x-1.5 ${
-                        isAdmin 
-                          ? "bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
-                          : "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.5)]"
-                      }`}
-                      title="Developer Override: Switch between Administrator View and User Preview mode"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping shrink-0"></span>
-                      <span>ROLE: {isAdmin ? "ADMIN ACTIVE" : "PREVIEW GUEST USER"}</span>
-                    </button>
-                  )}
-
-                  <button 
-                    onClick={logout}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
-                    title="Logout"
+                ) : (
+                  <button
+                    onClick={handleLogin}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors cursor-pointer shadow-md font-mono uppercase"
                   >
-                    <LogOut className="w-4 h-4" />
+                    Log In
                   </button>
-                </>
-              ) : (
-                <button
-                  onClick={handleLogin}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-4 rounded-lg transition-colors cursor-pointer shadow-md font-mono uppercase"
-                >
-                  Log In
-                </button>
-              )}
+                )}
+              </div>
             </div>
           </header>
 
@@ -829,17 +832,6 @@ export default function App() {
                   onRateMessage={handleRateMessage}
                   isAdmin={isAdmin}
                 />
-
-                {/* Floating expand button */}
-                {sidebarCollapsed && (
-                  <button
-                    onClick={() => setSidebarCollapsed(false)}
-                    className="absolute left-4 top-4 z-40 p-2 rounded-lg border border-emerald-900/35 bg-[#0a110d]/90 backdrop-blur text-slate-400 hover:text-emerald-400 hover:bg-emerald-950/20 shadow-md transition-all flex items-center justify-center cursor-pointer"
-                    title="Expand Sidebar"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                )}
 
                 {/* Floating Action Button for mobile-friendly document toggling (Admin / Authorized only) */}
                 {isAdmin && (
