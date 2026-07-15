@@ -221,7 +221,7 @@ export default function Sidebar({
 
   return (
     <div 
-      className={`fixed md:relative inset-y-0 left-0 z-40 flex flex-col h-full border-r border-emerald-900/30 bg-bg-sidebar overflow-hidden transition-all duration-300 shrink-0 ${
+      className={`fixed md:relative inset-y-0 left-0 z-40 flex flex-col h-full min-h-0 border-r border-emerald-900/30 bg-bg-sidebar overflow-hidden transition-all duration-300 shrink-0 ${
         collapsed 
           ? "-translate-x-full md:translate-x-0" 
           : "translate-x-0"
@@ -240,7 +240,7 @@ export default function Sidebar({
         </div>
       )}
       {/* App Branding */}
-      <div className="p-5 border-b border-emerald-900/20 bg-bg-base/40 flex items-center justify-between">
+      <div className="p-5 border-b border-emerald-900/20 bg-bg-base/40 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-3">
           <TransparentMapLogo 
             src="/2.png" 
@@ -268,7 +268,13 @@ export default function Sidebar({
       </div>
 
       {/* Main sidebar contents scroll container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div 
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-6"
+        style={{ 
+          WebkitOverflowScrolling: "touch", 
+          touchAction: "pan-y" 
+        }}
+      >
         
         {/* Assistant Modes Section */}
         <div>
@@ -352,7 +358,10 @@ export default function Sidebar({
             )}
           </div>
 
-          <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+          <div 
+            className="space-y-1 max-h-[200px] overflow-y-auto overscroll-contain pr-1 custom-scrollbar"
+            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+          >
             {chatSessions.length === 0 ? (
               <div className="text-center py-4 px-2 border border-dashed border-emerald-900/30 rounded-lg">
                 <MessageSquare className="w-5 h-5 text-emerald-900/40 mx-auto mb-2" />
@@ -465,7 +474,10 @@ export default function Sidebar({
             )}
 
             {/* Document Sources List */}
-            <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1 font-sans">
+            <div 
+              className="mt-4 space-y-2 max-h-56 overflow-y-auto overscroll-contain pr-1 font-sans"
+              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+            >
               {documents.map((doc) => {
                 const isSelected = selectedDocIds.includes(doc.id);
                 return (
@@ -526,7 +538,7 @@ export default function Sidebar({
       </div>
 
       {/* Footer Meta */}
-      <div className="p-4 border-t border-emerald-900/20 bg-bg-insight/60 text-[10px] text-slate-500 flex items-center space-x-2">
+      <div className="p-4 border-t border-emerald-900/20 bg-bg-insight/60 text-[10px] text-slate-500 flex items-center space-x-2 shrink-0">
         <Clock className="w-3.5 h-3.5 text-slate-500" />
         <span>Local Session Connected</span>
       </div>
