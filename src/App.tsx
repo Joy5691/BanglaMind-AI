@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { 
   AssistantMode, 
@@ -162,14 +162,26 @@ export default function App() {
   // Touch Gestures for mobile swipe-to-minimize / swipe-to-expand
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const touchStartedInScrollable = useRef(false);
 
   const handleTouchStart = (e: any) => {
+    // Detect if the touch originated inside a designated scrollable region
+    // (sidebar lists, chat message thread, etc). If so, skip swipe-to-collapse
+    // handling entirely so native vertical scrolling is never interrupted.
+    const target = e.target as HTMLElement;
+    touchStartedInScrollable.current = !!target.closest('[data-scrollable="true"]');
+
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
   };
 
   const handleTouchEnd = (e: any) => {
-    if (touchStartX === null || touchStartY === null) return;
+    if (touchStartX === null || touchStartY === null || touchStartedInScrollable.current) {
+      setTouchStartX(null);
+      setTouchStartY(null);
+      touchStartedInScrollable.current = false;
+      return;
+    }
     
     const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
@@ -194,6 +206,7 @@ export default function App() {
     
     setTouchStartX(null);
     setTouchStartY(null);
+    touchStartedInScrollable.current = false;
   };
 
   useEffect(() => {
@@ -644,10 +657,14 @@ export default function App() {
             <div className="flex items-center justify-between w-full md:w-auto gap-3">
               {/* Modular Navigation Tabs with glass styles - Hidden or locked for guests in Shared mode */}
               {user && (
-                <nav className="flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner">
+                <nav 
+                  className="flex space-x-1 p-1 bg-[#050807] rounded-xl border border-emerald-900/15 shadow-inner overflow-x-auto flex-nowrap max-w-[calc(100vw-140px)] md:max-w-none"
+                  style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+                  data-scrollable="true"
+                >
                   <button
                     onClick={() => setActiveTab("CHAT")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer shrink-0 ${
                       activeTab === "CHAT" 
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
                         : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
@@ -661,7 +678,7 @@ export default function App() {
                     <>
                       <button
                         onClick={() => setActiveTab("KNOWLEDGE")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer shrink-0 ${
                           activeTab === "KNOWLEDGE" 
                             ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
                             : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
@@ -673,7 +690,7 @@ export default function App() {
 
                       <button
                         onClick={() => setActiveTab("DASHBOARD")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer shrink-0 ${
                           activeTab === "DASHBOARD" 
                             ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
                             : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
@@ -685,7 +702,7 @@ export default function App() {
 
                       <button
                         onClick={() => setActiveTab("ADMIN")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer shrink-0 ${
                           activeTab === "ADMIN" 
                             ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/10" 
                             : "text-slate-400 hover:text-slate-200 hover:bg-emerald-900/10"
@@ -699,7 +716,7 @@ export default function App() {
                 </nav>
               )}
 
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 shrink-0">
                 {user ? (
                   <>
                     <div className="hidden sm:flex items-center space-x-2 bg-[#050807] py-1.5 px-3 rounded-full border border-emerald-900/20">
@@ -773,28 +790,30 @@ export default function App() {
                 )}
 
                 {/* Sidebar with upload handles */}
-                <Sidebar
-                  currentMode={currentMode}
-                  setMode={setCurrentMode}
-                  documents={documents}
-                  selectedDocIds={selectedDocIds}
-                  toggleDocSelection={handleToggleDoc}
-                  onUploadSuccess={handleUploadSuccess}
-                  onDeleteSuccess={handleDeleteSuccess}
-                  addLogMessage={appendSystemLog}
-                  userId={user?.uid}
-                  webSearchEnabled={webSearchEnabled}
-                  setWebSearchEnabled={setWebSearchEnabled}
-                  chatSessions={chatSessions}
-                  currentSessionId={currentSessionId}
-                  onLoadSession={handleLoadSession}
-                  onNewChat={handleClearChat}
-                  isAdmin={isAdmin}
-                  onDeleteSession={handleDeleteSession}
-                  width={sidebarWidth}
-                  collapsed={sidebarCollapsed}
-                  onClose={() => setSidebarCollapsed(true)}
-                />
+                <div data-scrollable="true" className="contents">
+                  <Sidebar
+                    currentMode={currentMode}
+                    setMode={setCurrentMode}
+                    documents={documents}
+                    selectedDocIds={selectedDocIds}
+                    toggleDocSelection={handleToggleDoc}
+                    onUploadSuccess={handleUploadSuccess}
+                    onDeleteSuccess={handleDeleteSuccess}
+                    addLogMessage={appendSystemLog}
+                    userId={user?.uid}
+                    webSearchEnabled={webSearchEnabled}
+                    setWebSearchEnabled={setWebSearchEnabled}
+                    chatSessions={chatSessions}
+                    currentSessionId={currentSessionId}
+                    onLoadSession={handleLoadSession}
+                    onNewChat={handleClearChat}
+                    isAdmin={isAdmin}
+                    onDeleteSession={handleDeleteSession}
+                    width={sidebarWidth}
+                    collapsed={sidebarCollapsed}
+                    onClose={() => setSidebarCollapsed(true)}
+                  />
+                </div>
                 
                 {/* Resizer Handle */}
                 {!sidebarCollapsed && (
@@ -817,21 +836,23 @@ export default function App() {
                 )}
 
                 {/* Conversations frame */}
-                <ChatArea
-                  mode={currentMode}
-                  messages={messages}
-                  selectedDocIds={selectedDocIds}
-                  onSendMessage={handleSendMessage}
-                  onClearChat={handleClearChat}
-                  isGenerating={isGenerating}
-                  addLogMessage={appendSystemLog}
-                  currentSessionId={currentSessionId}
-                  onShareSession={handleShareSession}
-                  isSharedView={isSharedView}
-                  onBackToMySession={handleBackToMySession}
-                  onRateMessage={handleRateMessage}
-                  isAdmin={isAdmin}
-                />
+                <div data-scrollable="true" className="contents">
+                  <ChatArea
+                    mode={currentMode}
+                    messages={messages}
+                    selectedDocIds={selectedDocIds}
+                    onSendMessage={handleSendMessage}
+                    onClearChat={handleClearChat}
+                    isGenerating={isGenerating}
+                    addLogMessage={appendSystemLog}
+                    currentSessionId={currentSessionId}
+                    onShareSession={handleShareSession}
+                    isSharedView={isSharedView}
+                    onBackToMySession={handleBackToMySession}
+                    onRateMessage={handleRateMessage}
+                    isAdmin={isAdmin}
+                  />
+                </div>
 
                 {/* Floating Action Button for mobile-friendly document toggling (Admin / Authorized only) */}
                 {isAdmin && (
@@ -879,7 +900,11 @@ export default function App() {
                       </div>
                       
                       {/* Document Checklist Scroll Container */}
-                      <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-4">
+                      <div 
+                        className="flex-1 overflow-y-auto overscroll-contain space-y-2 pr-1 mb-4"
+                        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+                        data-scrollable="true"
+                      >
                         {documents.length === 0 ? (
                           <div className="text-center py-8 text-xs text-slate-500">
                             No documents indexed yet.
